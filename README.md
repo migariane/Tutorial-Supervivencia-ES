@@ -71,11 +71,12 @@ Tutorial-Supervivencia-ES/
 
 ## 👥 Autoría
 
-**Dr. Miguel Ángel Luque Fernández**  
+Miguel Ángel Luque Fernández  
+Full Professor of Biostatistics  
 Department of Statistics and Operations Research  
 University of Granada, Spain
 
-**Contacto**: [malf@ugr.es](mailto:malf@ugr.es)
+Contacto: [mluquefe@ugr.es](mailto:mluquefe@ugr.es)
 
 ## 📄 Licencia
 
@@ -91,7 +92,7 @@ Las contribuciones son bienvenidas. Por favor:
 4. Push a la rama (`git push origin feature/NuevaCaracteristica`)
 5. Abre un Pull Request
 
-## 📚 Cómo Citar
+## Cómo Citar
 
 Si utilizas este material en tu investigación o docencia, por favor cita:
 
