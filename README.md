@@ -1,7 +1,6 @@
 # Tutorial de Análisis de Supervivencia en R
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Quarto](https://img.shields.io/badge/Made%20with-Quarto-blue.svg)](https://quarto.org)
 
 ## Descripción
 

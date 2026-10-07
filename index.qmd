@@ -1340,8 +1340,6 @@ La elección del método depende de:
 
 ```{r codigo-completo, eval=FALSE}
 # ============================================================
-# TUTORIAL DE ANÁLISIS DE SUPERVIVENCIA EN R
-# Código completo para reproducción
 # ============================================================
 
 # 1. INSTALACIÓN DE PAQUETES --------------------------------
@@ -1459,7 +1457,4 @@ sessionInfo()
 
 ---
 
-<p style="text-align: center; color: gray; font-size: 0.9em;">
-Tutorial creado con ❤️ usando <a href="https://quarto.org">Quarto</a> • Licencia MIT • 
-<a href="https://github.com/migariane/Tutorial-Supervivencia-ES">GitHub</a>
-</p>
+
