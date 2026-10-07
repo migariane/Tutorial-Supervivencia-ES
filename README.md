@@ -69,7 +69,7 @@ Tutorial-Supervivencia-ES/
 └── README.md               # Este archivo
 ```
 
-## 👥 Autoría
+## Autoría
 
 Miguel Ángel Luque Fernández  
 Full Professor of Biostatistics  
@@ -78,11 +78,11 @@ University of Granada, Spain
 
 Contacto: [mluquefe@ugr.es](mailto:mluquefe@ugr.es)
 
-## 📄 Licencia
+## Licencia
 
 Este proyecto está licenciado bajo la Licencia MIT - ver el archivo [LICENSE](LICENSE) para más detalles.
 
-## 🤝 Contribuciones
+## Contribuciones
 
 Las contribuciones son bienvenidas. Por favor:
 
@@ -106,13 +106,13 @@ Si utilizas este material en tu investigación o docencia, por favor cita:
 }
 ```
 
-## 🔗 Enlaces Relacionados
+## Enlaces relacionados
 
 - [Tutorial Original de Super Learner](https://migariane.github.io/SL-Tutorial/)
 - [Paquete survival en CRAN](https://CRAN.R-project.org/package=survival)
 - [Documentación de Quarto](https://quarto.org/)
 
-## 📊 Datos
+## Datos
 
 Los datos utilizados en este tutorial son de dominio público o simulados para fines educativos. Se incluyen las referencias correspondientes en cada caso.
 
