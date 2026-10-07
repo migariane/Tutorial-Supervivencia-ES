@@ -1,0 +1,37 @@
+# Archivos de Quarto
+/.quarto/
+/_site/
+/_book/
+/.cache/
+
+# R
+.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
+*.Rproj
+
+# Archivos temporales
+*~
+*.tmp
+*.bak
+*.swp
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Datos sensibles
+datos_privados/
+*.csv.backup
+
+# Figuras temporales
+figuras/tmp/
+
+# Output temporal
+output/
+
+**/*.quarto_ipynb

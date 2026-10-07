@@ -1,0 +1,1465 @@
+---
+title: "Tutorial de Análisis de Supervivencia en R"
+subtitle: "Métodos estadísticos para datos de tiempo hasta el evento"
+author:
+  - name: Miguel Ángel Luque Fernández
+    affiliation: Department of Statistics and Operations Research, University of Granada
+    email: malf@ugr.es
+date: "Octubre 7, 2026"
+abstract: |
+  Este tutorial presenta una introducción exhaustiva al análisis de supervivencia, 
+  cubriendo desde conceptos fundamentales hasta técnicas avanzadas de modelización. 
+  El análisis de supervivencia es una rama de la estadística que estudia el tiempo 
+  hasta que ocurre un evento de interés, considerando la presencia de datos censurados. 
+  Se presentan métodos no paramétricos (Kaplan-Meier), semiparamétricos (Cox) y 
+  paramétricos (Weibull, exponencial), con ejemplos prácticos implementados en R.
+keywords: [análisis de supervivencia, Kaplan-Meier, modelo de Cox, censura, riesgo proporcional]
+lang: es
+---
+
+# Introducción {#sec-intro}
+
+## ¿Qué es el análisis de supervivencia?
+
+El **análisis de supervivencia** es un conjunto de métodos estadísticos diseñados para analizar datos donde la variable de interés es el **tiempo hasta que ocurre un evento**. Aunque el término proviene de estudios médicos donde el evento de interés es la muerte, estos métodos se aplican ampliamente en:
+
+- **Medicina**: tiempo hasta recaída, muerte, recuperación
+- **Ingeniería**: tiempo hasta fallo de un componente
+- **Economía**: duración del desempleo, permanencia en un trabajo
+- **Ciencias sociales**: duración de matrimonios, tiempo hasta reincidencia criminal
+
+## Características especiales de los datos de supervivencia
+
+Los datos de supervivencia presentan dos características distintivas:
+
+1. **Positividad**: Los tiempos de supervivencia son siempre positivos ($T > 0$)
+2. **Censura**: No siempre observamos el evento de interés para todos los sujetos
+
+## Censura {#sec-censura}
+
+La **censura** es la característica más importante que distingue al análisis de supervivencia de otros métodos estadísticos. Un dato está **censurado** cuando no observamos el tiempo exacto del evento.
+
+### Tipos de censura
+
+#### Censura por la derecha
+
+El tipo más común. Ocurre cuando:
+
+- El estudio termina antes de que ocurra el evento
+- El sujeto se pierde durante el seguimiento
+- El sujeto experimenta un evento competitivo
+
+**Notación**: Si $T_i$ es el verdadero tiempo de supervivencia y $C_i$ el tiempo de censura, observamos:
+
+$$
+Y_i = \min(T_i, C_i)
+$$
+
+y el indicador de censura:
+
+$$
+\delta_i = \begin{cases}
+1 & \text{si } T_i \leq C_i \text{ (evento observado)} \\
+0 & \text{si } T_i > C_i \text{ (censurado)}
+\end{cases}
+$$
+
+#### Censura por la izquierda
+
+Ocurre cuando el evento ya ha ocurrido antes del inicio del estudio. Menos común en práctica.
+
+#### Censura por intervalo
+
+El evento ocurre en un intervalo conocido $(L_i, R_i]$ pero no se conoce el tiempo exacto.
+
+## Configuración del entorno
+
+```{r setup}
+#| label: setup
+#| message: false
+#| warning: false
+
+# Paquetes necesarios
+library(survival)      # Análisis de supervivencia
+library(survminer)     # Visualización
+library(flexsurv)      # Modelos paramétricos flexibles
+library(KMsurv)        # Datasets de supervivencia
+library(ggplot2)       # Gráficos
+library(dplyr)         # Manipulación de datos
+library(knitr)         # Tablas
+library(rms)           # Regresión y modelización
+library(cmprsk)        # Riesgos competitivos
+
+# Configuración de gráficos
+theme_set(theme_minimal())
+```
+
+# Conceptos fundamentales {#sec-conceptos}
+
+## Función de supervivencia
+
+La **función de supervivencia** $S(t)$ define la probabilidad de que un individuo sobreviva más allá del tiempo $t$:
+
+$$
+S(t) = P(T > t) = 1 - F(t)
+$$
+
+donde $F(t) = P(T \leq t)$ es la función de distribución acumulada.
+
+**Propiedades**:
+
+1. $S(0) = 1$ (todos están vivos al inicio)
+2. $S(\infty) = 0$ (eventualmente todos experimentan el evento)
+3. $S(t)$ es una función decreciente y continua por la derecha
+
+## Función de densidad
+
+La **función de densidad** de probabilidad se define como:
+
+$$
+f(t) = \lim_{\Delta t \to 0} \frac{P(t \leq T < t + \Delta t)}{\Delta t} = \frac{dF(t)}{dt} = -\frac{dS(t)}{dt}
+$$
+
+## Función de riesgo (hazard)
+
+La **función de riesgo** $h(t)$ (o *hazard function*) representa la tasa instantánea de ocurrencia del evento en el tiempo $t$, dado que el individuo ha sobrevivido hasta ese momento:
+
+$$
+h(t) = \lim_{\Delta t \to 0} \frac{P(t \leq T < t + \Delta t \mid T \geq t)}{\Delta t} = \frac{f(t)}{S(t)} = -\frac{d \log S(t)}{dt}
+$$
+
+**Interpretación**: $h(t)$ es la probabilidad condicional instantánea del evento.
+
+## Función de riesgo acumulado
+
+La **función de riesgo acumulado** $H(t)$ se define como:
+
+$$
+H(t) = \int_0^t h(u) \, du = -\log S(t)
+$$
+
+De donde se deduce:
+
+$$
+S(t) = \exp\left(-H(t)\right) = \exp\left(-\int_0^t h(u) \, du\right)
+$$
+
+## Relaciones entre funciones
+
+Las cuatro funciones ($S(t)$, $f(t)$, $h(t)$, $H(t)$) están interrelacionadas:
+
+$$
+\begin{aligned}
+S(t) &= \exp\left(-\int_0^t h(u) \, du\right) \\
+f(t) &= h(t) S(t) \\
+h(t) &= \frac{f(t)}{S(t)} = -\frac{d \log S(t)}{dt}
+\end{aligned}
+$$
+
+# Métodos no paramétricos {#sec-noparametricos}
+
+## Estimador de Kaplan-Meier {#sec-km}
+
+El **estimador de Kaplan-Meier** [@kaplan1958] es el método no paramétrico más utilizado para estimar la función de supervivencia en presencia de censura.
+
+### Construcción del estimador
+
+Sean $t_1 < t_2 < \cdots < t_k$ los tiempos únicos de eventos observados. En cada tiempo $t_j$:
+
+- $d_j$ = número de eventos
+- $n_j$ = número de individuos en riesgo (no han experimentado el evento ni han sido censurados antes de $t_j$)
+
+El estimador de Kaplan-Meier es:
+
+$$
+\hat{S}(t) = \prod_{j: t_j \leq t} \left(1 - \frac{d_j}{n_j}\right)
+$$
+
+### Varianza del estimador
+
+La varianza se estima mediante la **fórmula de Greenwood** [@greenwood1926]:
+
+$$
+\widehat{\text{Var}}[\hat{S}(t)] = \hat{S}(t)^2 \sum_{j: t_j \leq t} \frac{d_j}{n_j(n_j - d_j)}
+$$
+
+El **error estándar** es:
+
+$$
+\widehat{\text{SE}}[\hat{S}(t)] = \sqrt{\widehat{\text{Var}}[\hat{S}(t)]}
+$$
+
+### Intervalos de confianza
+
+El intervalo de confianza al $(1-\alpha) \times 100\%$ para $S(t)$ se puede construir usando:
+
+**Método lineal** (puede producir límites fuera de $[0,1]$):
+
+$$
+\hat{S}(t) \pm z_{\alpha/2} \times \widehat{\text{SE}}[\hat{S}(t)]
+$$
+
+**Método log-log** (recomendado, garantiza $\hat{S}(t) \in [0,1]$):
+
+$$
+\hat{S}(t)^{\exp\left(\pm \frac{z_{\alpha/2}}{\log \hat{S}(t) \times \widehat{\text{SE}}[\hat{S}(t)]}\right)}
+$$
+
+### Ejemplo: datos de leucemia
+
+Utilizamos los datos clásicos de Freireich et al. (1963) sobre tiempos de remisión en leucemia aguda.
+
+```{r km-ejemplo}
+#| label: fig-km-leucemia
+#| fig-cap: "Curvas de Kaplan-Meier para tiempos de remisión en leucemia aguda por grupo de tratamiento"
+
+# Cargar datos
+data(aml, package = "survival")
+
+# Crear objeto de supervivencia
+km_fit <- survfit(Surv(time, status) ~ x, data = aml)
+
+# Resumen
+summary(km_fit)
+
+# Gráfico
+ggsurvplot(
+  km_fit,
+  data = aml,
+  pval = TRUE,
+  conf.int = TRUE,
+  risk.table = TRUE,
+  xlab = "Tiempo (semanas)",
+  ylab = "Probabilidad de supervivencia",
+  title = "Curvas de Kaplan-Meier por grupo de tratamiento",
+  legend.title = "Grupo",
+  legend.labs = c("Mantenido", "No mantenido"),
+  ggtheme = theme_minimal()
+)
+```
+
+### Tiempo de supervivencia mediano
+
+El **tiempo de supervivencia mediano** es el tiempo $t_{0.5}$ tal que:
+
+$$
+\hat{S}(t_{0.5}) = 0.5
+$$
+
+```{r km-mediana}
+# Calcular medianas
+print(km_fit, print.rmean = TRUE)
+```
+
+## Comparación de curvas de supervivencia
+
+### Test de log-rank
+
+El **test de log-rank** [@mantel1966] compara dos o más curvas de supervivencia. Es el más utilizado y da peso igual a todos los tiempos.
+
+**Hipótesis**:
+
+- $H_0$: Las funciones de riesgo son iguales en todos los grupos ($h_1(t) = h_2(t) = \cdots = h_K(t)$)
+- $H_1$: Al menos una función de riesgo es diferente
+
+**Estadístico de prueba**: Sea $O_{kj}$ el número observado de eventos en el grupo $k$ en el tiempo $t_j$, y $E_{kj}$ el número esperado bajo $H_0$:
+
+$$
+E_{kj} = n_{kj} \times \frac{d_j}{n_j}
+$$
+
+El estadístico de log-rank es:
+
+$$
+\chi^2 = \sum_{k=1}^K \frac{(O_k - E_k)^2}{E_k} \sim \chi^2_{K-1}
+$$
+
+donde $O_k = \sum_j O_{kj}$ y $E_k = \sum_j E_{kj}$.
+
+```{r logrank}
+# Test de log-rank
+survdiff(Surv(time, status) ~ x, data = aml)
+```
+
+### Test de Wilcoxon-Breslow-Gehan
+
+Variante que da más peso a tiempos tempranos:
+
+$$
+W = \sum_{k=1}^K \sum_j n_j (O_{kj} - E_{kj})
+$$
+
+```{r wilcoxon}
+# Test de Wilcoxon
+survdiff(Surv(time, status) ~ x, data = aml, rho = 1)
+```
+
+### Test de Tarone-Ware
+
+Compromiso entre log-rank y Wilcoxon, usando pesos $w_j = \sqrt{n_j}$.
+
+## Estimador de Nelson-Aalen
+
+Alternativa al estimador de Kaplan-Meier, estima directamente el riesgo acumulado:
+
+$$
+\hat{H}(t) = \sum_{j: t_j \leq t} \frac{d_j}{n_j}
+$$
+
+La función de supervivencia se estima como:
+
+$$
+\hat{S}(t) = \exp(-\hat{H}(t))
+$$
+
+```{r nelson-aalen}
+#| label: fig-nelson-aalen
+#| fig-cap: "Comparación entre estimadores de Kaplan-Meier y Nelson-Aalen"
+
+# Estimador de Nelson-Aalen
+na_fit <- survfit(Surv(time, status) ~ 1, data = aml, type = "fleming-harrington")
+
+# Comparación
+par(mfrow = c(1, 2))
+plot(km_fit, conf.int = FALSE, main = "Kaplan-Meier", xlab = "Tiempo", ylab = "S(t)")
+plot(na_fit, conf.int = FALSE, main = "Nelson-Aalen", xlab = "Tiempo", ylab = "S(t)")
+```
+
+# Modelos paramétricos {#sec-parametricos}
+
+Los modelos paramétricos asumen que los tiempos de supervivencia siguen una distribución de probabilidad específica.
+
+## Distribución exponencial
+
+La distribución más simple. Asume **riesgo constante** $h(t) = \lambda$.
+
+### Funciones
+
+$$
+\begin{aligned}
+f(t) &= \lambda \exp(-\lambda t) \\
+S(t) &= \exp(-\lambda t) \\
+h(t) &= \lambda \\
+H(t) &= \lambda t
+\end{aligned}
+$$
+
+**Propiedad clave**: No tiene memoria. $P(T > s + t \mid T > s) = P(T > t)$.
+
+### Media y varianza
+
+$$
+E[T] = \frac{1}{\lambda}, \quad \text{Var}(T) = \frac{1}{\lambda^2}
+$$
+
+### Estimación
+
+El estimador de máxima verosimilitud para $\lambda$ con censura es:
+
+$$
+\hat{\lambda} = \frac{\sum_{i=1}^n \delta_i}{\sum_{i=1}^n y_i}
+$$
+
+donde $\delta_i$ es el indicador de evento e $y_i$ el tiempo observado.
+
+```{r exponencial}
+# Ajuste exponencial
+exp_fit <- survreg(Surv(time, status) ~ x, data = aml, dist = "exponential")
+summary(exp_fit)
+
+# Extraer lambda
+lambda <- 1 / exp(coef(exp_fit)[1])
+cat("Lambda estimado:", lambda, "\n")
+cat("Tiempo medio:", 1/lambda, "\n")
+```
+
+## Distribución de Weibull
+
+Generalización de la exponencial que permite riesgo creciente, decreciente o constante.
+
+### Funciones
+
+$$
+\begin{aligned}
+f(t) &= \lambda \gamma t^{\gamma-1} \exp(-\lambda t^\gamma) \\
+S(t) &= \exp(-\lambda t^\gamma) \\
+h(t) &= \lambda \gamma t^{\gamma-1} \\
+H(t) &= \lambda t^\gamma
+\end{aligned}
+$$
+
+Parámetros:
+
+- $\lambda > 0$: parámetro de escala
+- $\gamma > 0$: parámetro de forma
+  - $\gamma = 1$: exponencial (riesgo constante)
+  - $\gamma < 1$: riesgo decreciente
+  - $\gamma > 1$: riesgo creciente
+
+### Parametrización alternativa
+
+En R, `survreg` usa la parametrización:
+
+$$
+\log T = \mu + \sigma W
+$$
+
+donde $W$ sigue una distribución de valor extremo. La relación es:
+
+$$
+\gamma = \frac{1}{\sigma}, \quad \lambda = \exp(-\mu/\sigma)
+$$
+
+```{r weibull}
+#| label: fig-weibull
+#| fig-cap: "Ajuste Weibull y diagnóstico gráfico"
+
+# Ajuste Weibull
+weib_fit <- survreg(Surv(time, status) ~ x, data = aml, dist = "weibull")
+summary(weib_fit)
+
+# Extraer parámetros
+gamma <- 1 / weib_fit$scale
+lambda <- exp(-coef(weib_fit)[1] / weib_fit$scale)
+
+cat("Gamma (forma):", gamma, "\n")
+cat("Lambda (escala):", lambda, "\n")
+
+# Verificación gráfica: log-log plot
+# Si Weibull es apropiada, debe ser lineal
+km_all <- survfit(Surv(time, status) ~ 1, data = aml)
+plot(log(km_all$time), log(-log(km_all$surv)), 
+     xlab = "log(tiempo)", ylab = "log(-log(S(t)))",
+     main = "Diagnóstico Weibull: gráfico log-log")
+abline(lm(log(-log(km_all$surv)) ~ log(km_all$time)), col = "red")
+```
+
+## Distribución log-normal
+
+Los logaritmos de los tiempos siguen una distribución normal.
+
+### Funciones
+
+Si $\log T \sim N(\mu, \sigma^2)$:
+
+$$
+\begin{aligned}
+f(t) &= \frac{1}{t \sigma \sqrt{2\pi}} \exp\left(-\frac{(\log t - \mu)^2}{2\sigma^2}\right) \\
+S(t) &= 1 - \Phi\left(\frac{\log t - \mu}{\sigma}\right)
+\end{aligned}
+$$
+
+donde $\Phi$ es la función de distribución acumulada normal estándar.
+
+**Característica**: La función de riesgo $h(t)$ primero aumenta y luego disminuye (forma de campana).
+
+```{r lognormal}
+# Ajuste log-normal
+lognorm_fit <- survreg(Surv(time, status) ~ x, data = aml, dist = "lognormal")
+summary(lognorm_fit)
+```
+
+## Distribución log-logística
+
+Similar a log-normal pero con función de supervivencia de forma cerrada.
+
+### Funciones
+
+$$
+\begin{aligned}
+S(t) &= \frac{1}{1 + \lambda t^\gamma} \\
+h(t) &= \frac{\lambda \gamma t^{\gamma-1}}{1 + \lambda t^\gamma}
+\end{aligned}
+$$
+
+**Característica**: También tiene función de riesgo que primero aumenta y luego disminuye cuando $\gamma > 1$.
+
+```{r loglogistic}
+# Ajuste log-logístico
+loglog_fit <- survreg(Surv(time, status) ~ x, data = aml, dist = "loglogistic")
+summary(loglog_fit)
+```
+
+## Comparación de modelos
+
+### Criterios de información
+
+**AIC (Akaike Information Criterion)**:
+
+$$
+\text{AIC} = -2 \log L + 2p
+$$
+
+**BIC (Bayesian Information Criterion)**:
+
+$$
+\text{BIC} = -2 \log L + p \log n
+$$
+
+donde $L$ es la verosimilitud, $p$ el número de parámetros y $n$ el tamaño muestral.
+
+**Regla**: Menor valor indica mejor ajuste.
+
+```{r comparacion-modelos}
+# Comparar modelos
+modelos <- list(
+  Exponencial = exp_fit,
+  Weibull = weib_fit,
+  LogNormal = lognorm_fit,
+  LogLogistic = loglog_fit
+)
+
+comparacion <- data.frame(
+  Modelo = names(modelos),
+  AIC = sapply(modelos, AIC),
+  BIC = sapply(modelos, BIC),
+  LogLik = sapply(modelos, logLik)
+)
+
+kable(comparacion, digits = 2, caption = "Comparación de modelos paramétricos")
+```
+
+### Gráfico comparativo
+
+```{r comparacion-grafico}
+#| label: fig-comparacion
+#| fig-cap: "Comparación visual de ajustes paramétricos vs Kaplan-Meier"
+
+# Función para predecir supervivencia
+pred_surv <- function(fit, newdata, times) {
+  predict(fit, newdata = newdata, type = "quantile", p = 1 - times)
+}
+
+# Tiempos
+tiempos <- seq(0.1, 0.99, by = 0.01)
+
+# KM para comparación
+km_ref <- survfit(Surv(time, status) ~ 1, data = aml)
+
+# Gráfico
+plot(km_ref, conf.int = FALSE, xlab = "Tiempo", ylab = "S(t)", 
+     main = "Comparación de modelos")
+legend("topright", 
+       legend = c("Kaplan-Meier", "Exponencial", "Weibull", "Log-normal", "Log-logística"),
+       col = c("black", "red", "blue", "green", "purple"),
+       lty = 1)
+```
+
+# Modelo de riesgos proporcionales de Cox {#sec-cox}
+
+El **modelo de Cox** [@cox1972] es el modelo semiparamétrico más utilizado en análisis de supervivencia.
+
+## Especificación del modelo
+
+El modelo asume que la función de riesgo para el individuo $i$ es:
+
+$$
+h_i(t \mid \mathbf{X}_i) = h_0(t) \exp(\boldsymbol{\beta}' \mathbf{X}_i)
+$$
+
+donde:
+
+- $h_0(t)$ es la **función de riesgo basal** (no especificada)
+- $\mathbf{X}_i = (X_{i1}, \ldots, X_{ip})'$ es el vector de covariables
+- $\boldsymbol{\beta} = (\beta_1, \ldots, \beta_p)'$ es el vector de coeficientes
+
+### Razón de riesgos (Hazard Ratio)
+
+Comparando dos individuos con covariables $\mathbf{X}_i$ y $\mathbf{X}_j$:
+
+$$
+\text{HR}_{ij}(t) = \frac{h_i(t \mid \mathbf{X}_i)}{h_j(t \mid \mathbf{X}_j)} = \frac{h_0(t) \exp(\boldsymbol{\beta}' \mathbf{X}_i)}{h_0(t) \exp(\boldsymbol{\beta}' \mathbf{X}_j)} = \exp[\boldsymbol{\beta}'(\mathbf{X}_i - \mathbf{X}_j)]
+$$
+
+**Propiedad clave**: La razón de riesgos es **constante en el tiempo** (asunción de riesgos proporcionales).
+
+### Interpretación de coeficientes
+
+Para una covariable continua $X_k$:
+
+$$
+\text{HR} = \exp(\beta_k)
+$$
+
+- $\beta_k > 0$ ($\text{HR} > 1$): Aumento del riesgo
+- $\beta_k < 0$ ($\text{HR} < 1$): Disminución del riesgo
+- $\beta_k = 0$ ($\text{HR} = 1$): Sin efecto
+
+**Ejemplo**: Si $\beta_1 = 0.5$, entonces $\text{HR} = \exp(0.5) = 1.65$, indicando un aumento del 65% en el riesgo por cada unidad de aumento en $X_1$.
+
+## Verosimilitud parcial
+
+La estimación de $\boldsymbol{\beta}$ se realiza mediante **verosimilitud parcial** [@cox1975]:
+
+$$
+L(\boldsymbol{\beta}) = \prod_{i: \delta_i = 1} \frac{\exp(\boldsymbol{\beta}' \mathbf{X}_i)}{\sum_{j \in R(t_i)} \exp(\boldsymbol{\beta}' \mathbf{X}_j)}
+$$
+
+donde $R(t_i)$ es el conjunto de riesgo en el tiempo $t_i$ (individuos que no han experimentado el evento ni han sido censurados antes de $t_i$).
+
+## Ejemplo: datos de cáncer de pulmón
+
+```{r cox-ejemplo}
+#| label: tbl-cox
+#| tbl-cap: "Resultados del modelo de Cox para datos de cáncer de pulmón"
+
+# Datos
+data(lung, package = "survival")
+lung <- na.omit(lung)
+
+# Ajuste del modelo
+cox_fit <- coxph(Surv(time, status) ~ age + sex + ph.ecog + ph.karno + 
+                   pat.karno + meal.cal + wt.loss, 
+                 data = lung)
+
+summary(cox_fit)
+```
+
+### Intervalos de confianza
+
+Intervalos de confianza al 95% para HR:
+
+```{r cox-ic}
+# IC para HR
+exp(confint(cox_fit))
+```
+
+## Estratificación
+
+Cuando la asunción de riesgos proporcionales no se cumple para una covariable, se puede **estratificar** por ella:
+
+$$
+h_{ij}(t \mid \mathbf{X}_{ij}) = h_{0j}(t) \exp(\boldsymbol{\beta}' \mathbf{X}_{ij})
+$$
+
+donde $j$ indexa el estrato.
+
+```{r cox-estratificado}
+# Modelo estratificado por sexo
+cox_strat <- coxph(Surv(time, status) ~ age + strata(sex) + ph.ecog, 
+                   data = lung)
+summary(cox_strat)
+```
+
+## Diagnóstico del modelo
+
+### Verificación de riesgos proporcionales
+
+#### Test de Schoenfeld
+
+Los **residuos de Schoenfeld** permiten verificar la asunción de riesgos proporcionales:
+
+$$
+r_{ik} = \delta_i \left[X_{ik} - \frac{\sum_{j \in R(t_i)} X_{jk} \exp(\boldsymbol{\beta}' \mathbf{X}_j)}{\sum_{j \in R(t_i)} \exp(\boldsymbol{\beta}' \mathbf{X}_j)}\right]
+$$
+
+Si la asunción se cumple, los residuos escalados deben tener pendiente cero al graficarlos contra el tiempo.
+
+```{r schoenfeld}
+#| label: fig-schoenfeld
+#| fig-cap: "Residuos de Schoenfeld escalados para verificar riesgos proporcionales"
+
+# Test de riesgos proporcionales
+test_ph <- cox.zph(cox_fit)
+print(test_ph)
+
+# Gráfico
+par(mfrow = c(2, 2))
+plot(test_ph)
+```
+
+**Interpretación**: Un p-valor < 0.05 sugiere violación de la asunción de riesgos proporcionales.
+
+#### Gráficos log-log
+
+Para covariables categóricas:
+
+```{r loglog}
+#| label: fig-loglog
+#| fig-cap: "Gráfico log-log para verificar riesgos proporcionales por sexo"
+
+km_sex <- survfit(Surv(time, status) ~ sex, data = lung)
+plot(km_sex, fun = "cloglog", 
+     xlab = "log(Tiempo)", ylab = "log(-log(S(t)))",
+     main = "Verificación de riesgos proporcionales")
+legend("topleft", legend = c("Hombre", "Mujer"), col = 1:2, lty = 1)
+```
+
+Si las líneas son paralelas, la asunción se cumple.
+
+### Residuos de martingala
+
+Los **residuos de martingala** detectan la forma funcional de covariables continuas:
+
+$$
+M_i = \delta_i - \hat{H}_0(t_i) \exp(\boldsymbol{\beta}' \mathbf{X}_i)
+$$
+
+```{r martingala}
+#| label: fig-martingala
+#| fig-cap: "Residuos de martingala vs edad para detectar forma funcional"
+
+mart_res <- residuals(cox_fit, type = "martingale")
+
+plot(lung$age, mart_res, 
+     xlab = "Edad", ylab = "Residuos de martingala",
+     main = "Verificación de forma funcional")
+lines(lowess(lung$age, mart_res), col = "red", lwd = 2)
+abline(h = 0, lty = 2)
+```
+
+### Residuos de desviación
+
+Los **residuos de desviación** son transformaciones simétricas de los residuos de martingala:
+
+$$
+D_i = \text{sign}(M_i) \sqrt{-2[M_i + \delta_i \log(\delta_i - M_i)]}
+$$
+
+Útiles para detectar observaciones atípicas.
+
+```{r desviacion}
+#| label: fig-desviacion
+#| fig-cap: "Residuos de desviación para detectar observaciones atípicas"
+
+dev_res <- residuals(cox_fit, type = "deviance")
+
+plot(dev_res, 
+     xlab = "Índice", ylab = "Residuos de desviación",
+     main = "Detección de observaciones atípicas")
+abline(h = c(-2, 0, 2), lty = c(2, 1, 2))
+```
+
+### Estadísticos de influencia
+
+**DFBETAs**: Miden el cambio en $\hat{\boldsymbol{\beta}}$ al eliminar la observación $i$.
+
+```{r dfbetas}
+#| label: fig-dfbetas
+#| fig-cap: "DFBETAs para detectar observaciones influyentes"
+
+dfb <- residuals(cox_fit, type = "dfbeta")
+
+par(mfrow = c(2, 2))
+for (j in 1:min(4, ncol(dfb))) {
+  plot(dfb[, j], ylab = paste("DFBETA", j),
+       main = colnames(dfb)[j])
+  abline(h = 0, lty = 2)
+}
+```
+
+## Extensiones del modelo de Cox
+
+### Covariables dependientes del tiempo
+
+Permite que las covariables cambien con el tiempo:
+
+$$
+h_i(t \mid \mathbf{X}_i(t)) = h_0(t) \exp(\boldsymbol{\beta}' \mathbf{X}_i(t))
+$$
+
+```{r td-covariates}
+# Ejemplo: efecto de tratamiento que cambia después de 6 meses
+lung$trt_after6 <- lung$time > 180
+
+# Formato tstart-tstop para covariables dependientes del tiempo
+lung_td <- survSplit(Surv(time, status) ~ ., 
+                     data = lung,
+                     cut = 180,
+                     episode = "interval")
+
+# Modelo
+cox_td <- coxph(Surv(tstart, time, status) ~ age + sex + interval, 
+                data = lung_td)
+summary(cox_td)
+```
+
+### Términos de interacción
+
+Permiten que el efecto de una covariable dependa de otra:
+
+```{r interaccion}
+# Interacción entre edad y sexo
+cox_int <- coxph(Surv(time, status) ~ age * sex + ph.ecog, data = lung)
+summary(cox_int)
+```
+
+### Términos no lineales (splines)
+
+Para capturar efectos no lineales:
+
+```{r splines}
+# Efecto no lineal de edad usando splines
+library(splines)
+cox_spline <- coxph(Surv(time, status) ~ ns(age, df = 3) + sex + ph.ecog, 
+                    data = lung)
+summary(cox_spline)
+```
+
+# Tópicos avanzados {#sec-avanzados}
+
+## Riesgos competitivos {#sec-competitivos}
+
+Los **riesgos competitivos** ocurren cuando un sujeto puede experimentar uno de varios eventos mutuamente excluyentes.
+
+### Función de incidencia acumulada
+
+La **función de incidencia acumulada (CIF)** para el evento tipo $k$ es:
+
+$$
+F_k(t) = P(T \leq t, \text{tipo } = k) = \int_0^t S(u) h_k(u) \, du
+$$
+
+donde $S(t)$ es la supervivencia global y $h_k(t)$ es la causa-específica hazard.
+
+**Propiedad**: $\sum_{k=1}^K F_k(\infty) = 1$ si todos eventualmente experimentan algún evento.
+
+### Test de Gray
+
+El **test de Gray** [@gray1988] compara CIFs entre grupos considerando los eventos competitivos.
+
+```{r riesgos-competitivos}
+#| label: fig-cif
+#| fig-cap: "Funciones de incidencia acumulada para riesgos competitivos"
+
+# Simular datos con riesgos competitivos
+set.seed(123)
+n <- 200
+tiempo <- rexp(n, 0.01)
+evento <- sample(0:2, n, replace = TRUE, prob = c(0.3, 0.4, 0.3))
+# 0 = censura, 1 = evento tipo 1, 2 = evento tipo 2
+grupo <- rbinom(n, 1, 0.5)
+
+datos_cr <- data.frame(tiempo, evento, grupo)
+
+# Estimar CIF
+cif_fit <- cuminc(ftime = datos_cr$tiempo, 
+                  fstatus = datos_cr$evento,
+                  group = datos_cr$grupo)
+
+# Gráfico
+plot(cif_fit, lty = 1:2, col = 1:2,
+     xlab = "Tiempo", ylab = "Incidencia acumulada",
+     main = "Funciones de incidencia acumulada por grupo")
+legend("topleft", 
+       legend = c("Grupo 0, Evento 1", "Grupo 0, Evento 2",
+                  "Grupo 1, Evento 1", "Grupo 1, Evento 2"),
+       lty = rep(1:2, 2), col = rep(1:2, each = 2))
+
+# Test de Gray
+print(cif_fit)
+```
+
+### Modelo de subdistribución de Fine-Gray
+
+El **modelo de Fine-Gray** [@fine1999] modela directamente la CIF:
+
+$$
+h_k^*(t \mid \mathbf{X}) = h_{0k}^*(t) \exp(\boldsymbol{\beta}_k' \mathbf{X})
+$$
+
+donde $h_k^*(t)$ es el **subdistribution hazard**.
+
+```{r fine-gray}
+# Modelo de Fine-Gray
+fg_fit <- crr(ftime = datos_cr$tiempo,
+              fstatus = datos_cr$evento,
+              cov1 = datos_cr$grupo,
+              failcode = 1)
+
+summary(fg_fit)
+```
+
+## Modelos de fragilidad {#sec-fragilidad}
+
+Los **modelos de fragilidad** introducen heterogeneidad no observada mediante un efecto aleatorio:
+
+$$
+h_i(t \mid \mathbf{X}_i, Z_i) = Z_i h_0(t) \exp(\boldsymbol{\beta}' \mathbf{X}_i)
+$$
+
+donde $Z_i$ es la fragilidad (usualmente $Z_i \sim \text{Gamma}(\theta, \theta)$ con $E[Z_i] = 1$).
+
+**Aplicaciones**: Datos agrupados (pacientes dentro de hospitales) o eventos recurrentes.
+
+```{r fragilidad}
+# Modelo de fragilidad gamma
+data(rats, package = "survival")
+
+frailty_fit <- coxph(Surv(time, status) ~ rx + frailty(litter), 
+                     data = rats)
+summary(frailty_fit)
+```
+
+## Eventos recurrentes
+
+Para sujetos que pueden experimentar el evento múltiples veces.
+
+### Procesos de conteo
+
+Modelamos el número de eventos $N_i(t)$ usando modelos de intensidad:
+
+$$
+\lambda_i(t \mid \mathbf{X}_i) = Y_i(t) h_0(t) \exp(\boldsymbol{\beta}' \mathbf{X}_i)
+$$
+
+donde $Y_i(t)$ indica si el sujeto $i$ está en riesgo en el tiempo $t$.
+
+### Modelos para eventos recurrentes
+
+1. **Andersen-Gill (AG)**: Todos los eventos se tratan igualmente
+2. **Prentice-Williams-Peterson (PWP)**: Estratifica por número de evento
+3. **Wei-Lin-Weissfeld (WLW)**: Modelo marginal para cada evento
+
+```{r recurrentes}
+# Ejemplo con datos simulados de eventos recurrentes
+datos_rec <- data.frame(
+  id = rep(1:50, each = 3),
+  evento = sample(0:1, 150, replace = TRUE),
+  tiempo = abs(rnorm(150, 10, 3)),
+  x1 = rep(rnorm(50), each = 3)
+)
+
+# Modelo Andersen-Gill
+ag_fit <- coxph(Surv(tiempo, evento) ~ x1 + cluster(id), 
+                data = datos_rec)
+summary(ag_fit)
+```
+
+## Análisis de concordancia
+
+El **índice de concordancia (C-index)** mide la capacidad discriminativa del modelo:
+
+$$
+C = P(\hat{T}_i > \hat{T}_j \mid T_i > T_j)
+$$
+
+- $C = 0.5$: Sin capacidad discriminativa (aleatorio)
+- $C = 1$: Discriminación perfecta
+
+```{r concordancia}
+# Calcular C-index
+c_index <- concordance(cox_fit)
+print(c_index)
+
+# Usando paquete survival
+survConcordance(Surv(time, status) ~ predict(cox_fit), data = lung)
+```
+
+## Validación del modelo
+
+### Validación cruzada
+
+```{r validacion-cruzada}
+# Validación cruzada 10-fold
+set.seed(456)
+k <- 10
+folds <- sample(1:k, nrow(lung), replace = TRUE)
+
+c_indices <- numeric(k)
+for (i in 1:k) {
+  train <- lung[folds != i, ]
+  test <- lung[folds == i, ]
+  
+  modelo <- coxph(Surv(time, status) ~ age + sex + ph.ecog, data = train)
+  pred <- predict(modelo, newdata = test)
+  
+  c_indices[i] <- concordance(Surv(time, status) ~ pred, data = test)$concordance
+}
+
+cat("C-index medio (CV):", mean(c_indices), "\n")
+cat("Desviación estándar:", sd(c_indices), "\n")
+```
+
+### Calibración
+
+La **calibración** evalúa si las probabilidades predichas coinciden con las frecuencias observadas.
+
+```{r calibracion}
+# Gráfico de calibración
+library(rms)
+
+dd <- datadist(lung)
+options(datadist = "dd")
+
+cox_rms <- cph(Surv(time, status) ~ age + sex + ph.ecog, 
+               data = lung, x = TRUE, y = TRUE, surv = TRUE, time.inc = 365)
+
+cal <- calibrate(cox_rms, u = 365, B = 50)
+plot(cal, main = "Gráfico de calibración")
+```
+
+# Predicción de supervivencia {#sec-prediccion}
+
+## Predicción individual
+
+Para un nuevo paciente con covariables $\mathbf{X}_{\text{new}}$, la función de supervivencia predicha es:
+
+$$
+\hat{S}(t \mid \mathbf{X}_{\text{new}}) = \hat{S}_0(t)^{\exp(\hat{\boldsymbol{\beta}}' \mathbf{X}_{\text{new}})}
+$$
+
+donde $\hat{S}_0(t)$ es la función de supervivencia basal estimada.
+
+```{r prediccion}
+#| label: fig-prediccion
+#| fig-cap: "Curvas de supervivencia predichas para perfiles de pacientes"
+
+# Definir perfiles de pacientes
+perfiles <- data.frame(
+  age = c(50, 50, 70, 70),
+  sex = c(1, 2, 1, 2),
+  ph.ecog = c(0, 0, 2, 2),
+  ph.karno = c(100, 100, 100, 100),
+  pat.karno = c(100, 100, 100, 100),
+  meal.cal = c(1000, 1000, 1000, 1000),
+  wt.loss = c(0, 0, 0, 0)
+)
+
+# Predicciones
+pred_surv <- survfit(cox_fit, newdata = perfiles)
+
+# Gráfico
+plot(pred_surv, col = 1:4, lwd = 2,
+     xlab = "Tiempo (días)", ylab = "Probabilidad de supervivencia",
+     main = "Curvas de supervivencia predichas")
+legend("topright",
+       legend = c("50 años, Hombre, ECOG 0", 
+                  "50 años, Mujer, ECOG 0",
+                  "70 años, Hombre, ECOG 2",
+                  "70 años, Mujer, ECOG 2"),
+       col = 1:4, lwd = 2)
+```
+
+## Probabilidades de supervivencia
+
+```{r prob-supervivencia}
+# Probabilidad de sobrevivir 1 año (365 días)
+summary(pred_surv, times = 365)
+
+# Probabilidad de sobrevivir 2 años
+summary(pred_surv, times = 730)
+```
+
+## Nomogramas
+
+Los **nomogramas** permiten cálculos gráficos de probabilidades de supervivencia.
+
+```{r nomograma}
+#| label: fig-nomograma
+#| fig-cap: "Predicción de supervivencia para diferentes perfiles de pacientes"
+
+library(rms)
+
+dd <- datadist(lung)
+options(datadist = "dd")
+
+# Modelo usando rms
+cox_nom <- cph(Surv(time, status) ~ age + sex + ph.ecog,
+               data = lung, x = TRUE, y = TRUE, surv = TRUE, time.inc = 365)
+
+# Crear perfiles de pacientes para predicción
+perfiles_nom <- data.frame(
+  age = c(40, 50, 60, 70, 80),
+  sex = rep(1, 5),
+  ph.ecog = rep(1, 5)
+)
+
+# Calcular predicciones de supervivencia a 1 año y 2 años
+survest_1yr <- survest(cox_nom, newdata = perfiles_nom, times = 365)
+survest_2yr <- survest(cox_nom, newdata = perfiles_nom, times = 730)
+
+# Crear tabla de predicciones
+pred_table <- data.frame(
+  Edad = perfiles_nom$age,
+  Sexo = "Masculino",
+  ECOG = perfiles_nom$ph.ecog,
+  Supervivencia_1_año = round(survest_1yr$surv, 3),
+  Supervivencia_2_años = round(survest_2yr$surv, 3)
+)
+
+kable(pred_table, 
+      caption = "Probabilidades de supervivencia predichas según edad del paciente",
+      col.names = c("Edad", "Sexo", "ECOG", "1 año", "2 años"))
+```
+
+# Consideraciones prácticas {#sec-practicas}
+
+## Tamaño muestral
+
+El tamaño muestral requerido depende del **número de eventos**, no del número de sujetos.
+
+**Regla general**: Se necesitan al menos 10 eventos por covariable para evitar sobreajuste.
+
+$$
+n_{\text{eventos}} \geq 10 \times p
+$$
+
+donde $p$ es el número de covariables.
+
+## Manejo de datos faltantes
+
+### Análisis de casos completos
+
+Elimina sujetos con valores faltantes. **Problema**: Pérdida de información y posible sesgo.
+
+### Imputación múltiple
+
+Genera varios conjuntos de datos imputados y combina los resultados.
+
+```{r imputacion}
+# Ejemplo de imputación múltiple con mice
+library(mice)
+
+# Crear valores faltantes artificiales
+lung_na <- lung
+lung_na$age[sample(1:nrow(lung_na), 20)] <- NA
+
+# Imputación múltiple
+imp <- mice(lung_na, m = 5, maxit = 10, seed = 123, printFlag = FALSE)
+
+# Ajustar modelo en cada conjunto imputado
+fit_imp <- with(imp, coxph(Surv(time, status) ~ age + sex + ph.ecog))
+
+# Combinar resultados
+pool_fit <- pool(fit_imp)
+summary(pool_fit)
+```
+
+## Selección de variables
+
+### Método backward
+
+```{r backward}
+# Modelo completo
+full_model <- coxph(Surv(time, status) ~ age + sex + ph.ecog + ph.karno + 
+                      pat.karno + meal.cal + wt.loss, 
+                    data = lung)
+
+# Selección backward usando AIC
+step_model <- step(full_model, direction = "backward", trace = 0)
+summary(step_model)
+```
+
+### Regularización (LASSO)
+
+```{r lasso}
+#| warning: false
+
+library(glmnet)
+
+# Preparar datos
+x <- model.matrix(~ age + sex + ph.ecog + ph.karno + 
+                    pat.karno + meal.cal + wt.loss - 1, data = lung)
+y <- Surv(lung$time, lung$status)
+
+# LASSO
+lasso_fit <- cv.glmnet(x, y, family = "cox", alpha = 1)
+
+# Coeficientes
+coef(lasso_fit, s = "lambda.min")
+
+# Gráfico
+plot(lasso_fit)
+```
+
+## Reporte de resultados
+
+### Tabla de resultados
+
+```{r tabla-resultados}
+# Función para crear tabla de resultados
+crear_tabla <- function(modelo) {
+  coef_df <- data.frame(
+    Variable = names(coef(modelo)),
+    Coeficiente = coef(modelo),
+    HR = exp(coef(modelo)),
+    IC_inf = exp(confint(modelo)[, 1]),
+    IC_sup = exp(confint(modelo)[, 2]),
+    p_valor = summary(modelo)$coefficients[, "Pr(>|z|)"]
+  )
+  rownames(coef_df) <- NULL
+  return(coef_df)
+}
+
+tabla <- crear_tabla(cox_fit)
+kable(tabla, digits = 3, 
+      caption = "Resultados del modelo de Cox: Hazard Ratios e intervalos de confianza al 95%")
+```
+
+### Gráfico Forest Plot
+
+```{r forest-plot}
+#| label: fig-forest
+#| fig-cap: "Forest plot de hazard ratios con intervalos de confianza al 95%"
+
+library(forestplot)
+
+# Extraer datos
+coefs <- coef(cox_fit)
+hrs <- exp(coefs)
+ci <- exp(confint(cox_fit))
+
+# Preparar datos
+tabletext <- cbind(
+  c("Variable", names(coefs)),
+  c("HR", sprintf("%.2f", hrs)),
+  c("95% IC", sprintf("(%.2f-%.2f)", ci[, 1], ci[, 2]))
+)
+
+# Forest plot
+forestplot(tabletext,
+           mean = c(NA, hrs),
+           lower = c(NA, ci[, 1]),
+           upper = c(NA, ci[, 2]),
+           xlog = TRUE,
+           xlab = "Hazard Ratio",
+           col = fpColors(box = "royalblue", line = "darkblue"))
+```
+
+# Casos de estudio {#sec-casos}
+
+## Caso 1: Trasplante de médula ósea
+
+```{r caso-bmt}
+#| label: fig-caso-bmt
+#| fig-cap: "Análisis de supervivencia en trasplante de médula ósea"
+
+# Datos simulados de trasplante
+set.seed(789)
+n_bmt <- 137
+bmt <- data.frame(
+  time = abs(rnorm(n_bmt, 500, 300)),
+  status = sample(0:1, n_bmt, replace = TRUE, prob = c(0.4, 0.6)),
+  age = rnorm(n_bmt, 35, 10),
+  donor = factor(sample(c("Relacionado", "No relacionado"), n_bmt, replace = TRUE)),
+  disease = factor(sample(c("AML", "ALL", "CML"), n_bmt, replace = TRUE))
+)
+
+# KM por tipo de donante
+km_bmt <- survfit(Surv(time, status) ~ donor, data = bmt)
+
+ggsurvplot(km_bmt, data = bmt,
+           pval = TRUE, conf.int = TRUE,
+           risk.table = TRUE,
+           xlab = "Días desde trasplante",
+           ylab = "Probabilidad de supervivencia",
+           title = "Supervivencia por tipo de donante",
+           ggtheme = theme_minimal())
+
+# Modelo multivariado
+cox_bmt <- coxph(Surv(time, status) ~ age + donor + disease, data = bmt)
+summary(cox_bmt)
+```
+
+## Caso 2: Cáncer de mama
+
+```{r caso-mama}
+#| label: fig-caso-mama
+#| fig-cap: "Análisis de supervivencia en cáncer de mama con covariables tiempo-dependientes"
+
+# Datos simulados de cáncer de mama con recaída
+set.seed(321)
+n_mama <- 200
+mama <- data.frame(
+  id = 1:n_mama,
+  time = abs(rnorm(n_mama, 1000, 400)),
+  status = sample(0:1, n_mama, replace = TRUE, prob = c(0.3, 0.7)),
+  age = rnorm(n_mama, 55, 12),
+  size = exp(rnorm(n_mama, log(2.5), 0.5)),
+  nodes = rpois(n_mama, 3),
+  grade = factor(sample(1:3, n_mama, replace = TRUE)),
+  er = factor(sample(c("Positivo", "Negativo"), n_mama, replace = TRUE, prob = c(0.7, 0.3)))
+)
+
+# Modelo de Cox
+cox_mama <- coxph(Surv(time, status) ~ age + size + nodes + grade + er, 
+                  data = mama)
+summary(cox_mama)
+
+# Validación de riesgos proporcionales
+test_ph_mama <- cox.zph(cox_mama)
+print(test_ph_mama)
+```
+
+# Software y recursos {#sec-recursos}
+
+## Paquetes de R
+
+- **survival** [@therneau2000]: Paquete fundamental
+- **survminer** [@kassambara2021]: Visualización avanzada
+- **flexsurv** [@jackson2016]: Modelos paramétricos flexibles
+- **rms** [@harrell2015]: Regresión y estrategias de modelización
+- **cmprsk** [@gray2014]: Riesgos competitivos
+- **coxme** [@therneau2022]: Modelos de Cox con efectos mixtos
+
+## Recursos adicionales
+
+### Libros
+
+- Hosmer, Lemeshow & May (2008). *Applied Survival Analysis*
+- Kleinbaum & Klein (2012). *Survival Analysis: A Self-Learning Text*
+- Therneau & Grambsch (2000). *Modeling Survival Data*
+- Klein & Moeschberger (2003). *Survival Analysis: Techniques for Censored and Truncated Data*
+
+### Cursos online
+
+- [Survival Analysis in R](https://www.datacamp.com/courses/survival-analysis-in-r)
+- [STHDA Survival Analysis](http://www.sthda.com/english/wiki/survival-analysis)
+
+### Documentación
+
+- [CRAN Task View: Survival Analysis](https://CRAN.R-project.org/view=Survival)
+- [survival package vignettes](https://cran.r-project.org/web/packages/survival/vignettes/)
+
+# Conclusiones {#sec-conclusiones}
+
+El análisis de supervivencia proporciona herramientas estadísticas poderosas para analizar datos de tiempo hasta el evento en presencia de censura. Los puntos clave son:
+
+1. **Censura**: Requiere métodos especializados que no ignoran la información parcial
+2. **Kaplan-Meier**: Método no paramétrico para estimar funciones de supervivencia
+3. **Test de log-rank**: Prueba estándar para comparar curvas de supervivencia
+4. **Modelos paramétricos**: Útiles cuando se conoce la distribución subyacente
+5. **Modelo de Cox**: Modelo semiparamétrico más utilizado, flexible y robusto
+6. **Diagnóstico**: Verificación de asunciones es crucial (riesgos proporcionales, forma funcional)
+7. **Extensiones**: Riesgos competitivos, fragilidad y eventos recurrentes para situaciones más complejas
+
+La elección del método depende de:
+
+- Objetivo del análisis (descripción vs predicción)
+- Estructura de los datos (censura, covariables, eventos competitivos)
+- Asunciones que estemos dispuestos a hacer
+- Tamaño muestral disponible
+
+# Referencias {#sec-referencias}
+
+::: {#refs}
+:::
+
+# Apéndice A: Código R completo {#sec-apendice-a}
+
+```{r codigo-completo, eval=FALSE}
+# ============================================================
+# TUTORIAL DE ANÁLISIS DE SUPERVIVENCIA EN R
+# Código completo para reproducción
+# ============================================================
+
+# 1. INSTALACIÓN DE PAQUETES --------------------------------
+install.packages(c("survival", "survminer", "flexsurv", 
+                   "KMsurv", "cmprsk", "rms", "ggplot2"))
+
+# 2. CARGA DE LIBRERÍAS -------------------------------------
+library(survival)
+library(survminer)
+library(flexsurv)
+library(KMsurv)
+library(cmprsk)
+library(rms)
+library(ggplot2)
+
+# 3. ANÁLISIS NO PARAMÉTRICO --------------------------------
+# Datos de ejemplo
+data(aml, package = "survival")
+
+# Kaplan-Meier
+km_fit <- survfit(Surv(time, status) ~ x, data = aml)
+summary(km_fit)
+
+# Gráfico
+ggsurvplot(km_fit, data = aml, pval = TRUE, conf.int = TRUE)
+
+# Test de log-rank
+survdiff(Surv(time, status) ~ x, data = aml)
+
+# 4. MODELOS PARAMÉTRICOS -----------------------------------
+# Exponencial
+exp_fit <- survreg(Surv(time, status) ~ x, data = aml, 
+                   dist = "exponential")
+
+# Weibull
+weib_fit <- survreg(Surv(time, status) ~ x, data = aml, 
+                    dist = "weibull")
+
+# Log-normal
+lognorm_fit <- survreg(Surv(time, status) ~ x, data = aml, 
+                       dist = "lognormal")
+
+# Comparar modelos
+AIC(exp_fit, weib_fit, lognorm_fit)
+
+# 5. MODELO DE COX ------------------------------------------
+data(lung, package = "survival")
+lung <- na.omit(lung)
+
+# Ajuste
+cox_fit <- coxph(Surv(time, status) ~ age + sex + ph.ecog, 
+                 data = lung)
+summary(cox_fit)
+
+# Diagnóstico
+cox.zph(cox_fit)
+plot(cox.zph(cox_fit))
+
+# 6. PREDICCIÓN ---------------------------------------------
+# Definir perfil
+nuevo_paciente <- data.frame(age = 60, sex = 1, ph.ecog = 1)
+
+# Predecir
+pred <- survfit(cox_fit, newdata = nuevo_paciente)
+plot(pred)
+
+# Probabilidad a 1 año
+summary(pred, times = 365)
+```
+
+# Apéndice B: Fórmulas matemáticas {#sec-apendice-b}
+
+## Distribuciones comunes
+
+| Distribución | $h(t)$ | $S(t)$ | Parámetros |
+|:-------------|:-------|:-------|:-----------|
+| Exponencial | $\lambda$ | $\exp(-\lambda t)$ | $\lambda > 0$ |
+| Weibull | $\lambda \gamma t^{\gamma-1}$ | $\exp(-\lambda t^\gamma)$ | $\lambda, \gamma > 0$ |
+| Log-normal | $\frac{\phi\left(\frac{\log t - \mu}{\sigma}\right)}{\sigma t \left[1 - \Phi\left(\frac{\log t - \mu}{\sigma}\right)\right]}$ | $1 - \Phi\left(\frac{\log t - \mu}{\sigma}\right)$ | $\mu \in \mathbb{R}, \sigma > 0$ |
+| Log-logística | $\frac{\lambda \gamma t^{\gamma-1}}{1 + \lambda t^\gamma}$ | $\frac{1}{1 + \lambda t^\gamma}$ | $\lambda, \gamma > 0$ |
+
+: Funciones de riesgo y supervivencia para distribuciones comunes {#tbl-distribuciones}
+
+## Tests estadísticos
+
+### Test de log-rank
+
+$$
+\chi^2 = \frac{(O_1 - E_1)^2}{E_1} + \frac{(O_2 - E_2)^2}{E_2} \sim \chi^2_1
+$$
+
+### Test de Wald
+
+Para $H_0: \beta_j = 0$:
+
+$$
+z = \frac{\hat{\beta}_j}{\widehat{\text{SE}}(\hat{\beta}_j)} \sim N(0, 1)
+$$
+
+### Test de razón de verosimilitud
+
+$$
+-2 \log \Lambda = -2[\log L(\text{modelo restringido}) - \log L(\text{modelo completo})] \sim \chi^2_q
+$$
+
+donde $q$ es la diferencia en número de parámetros.
+
+---
+
+**Información de la sesión:**
+
+```{r sessioninfo}
+sessionInfo()
+```
+
+---
+
+<p style="text-align: center; color: gray; font-size: 0.9em;">
+Tutorial creado con ❤️ usando <a href="https://quarto.org">Quarto</a> • Licencia MIT • 
+<a href="https://github.com/migariane/Tutorial-Supervivencia-ES">GitHub</a>
+</p>

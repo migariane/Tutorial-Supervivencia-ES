@@ -1,0 +1,224 @@
+/* Estilos personalizados para el Tutorial de Análisis de Supervivencia */
+
+/* Variables de color */
+:root {
+  --primary-color: #2C3E50;
+  --secondary-color: #3498DB;
+  --accent-color: #E74C3C;
+  --success-color: #27AE60;
+  --warning-color: #F39C12;
+  --code-bg: #F8F9FA;
+  --border-color: #DEE2E6;
+}
+
+/* Encabezados */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--primary-color);
+  font-weight: 600;
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+}
+
+h1 {
+  border-bottom: 3px solid var(--secondary-color);
+  padding-bottom: 0.5rem;
+}
+
+h2 {
+  border-bottom: 2px solid var(--border-color);
+  padding-bottom: 0.3rem;
+}
+
+/* Código */
+pre {
+  background-color: var(--code-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+  padding: 1rem;
+  overflow-x: auto;
+}
+
+code {
+  background-color: var(--code-bg);
+  padding: 0.2rem 0.4rem;
+  border-radius: 3px;
+  font-size: 0.9em;
+}
+
+pre code {
+  background-color: transparent;
+  padding: 0;
+}
+
+/* Bloques de nota */
+.callout {
+  border-radius: 5px;
+  padding: 1rem;
+  margin: 1.5rem 0;
+  border-left: 4px solid;
+}
+
+.callout-note {
+  background-color: #E3F2FD;
+  border-left-color: var(--secondary-color);
+}
+
+.callout-warning {
+  background-color: #FFF3E0;
+  border-left-color: var(--warning-color);
+}
+
+.callout-important {
+  background-color: #FFEBEE;
+  border-left-color: var(--accent-color);
+}
+
+.callout-tip {
+  background-color: #E8F5E9;
+  border-left-color: var(--success-color);
+}
+
+/* Tablas */
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1.5rem 0;
+  font-size: 0.95em;
+}
+
+thead {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+th, td {
+  padding: 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+}
+
+tbody tr:hover {
+  background-color: #F8F9FA;
+}
+
+/* Ecuaciones */
+.math {
+  overflow-x: auto;
+  padding: 0.5rem 0;
+}
+
+/* Figuras */
+figure {
+  margin: 2rem 0;
+  text-align: center;
+}
+
+figcaption {
+  font-style: italic;
+  color: #666;
+  margin-top: 0.5rem;
+  font-size: 0.9em;
+}
+
+/* Enlaces */
+a {
+  color: var(--secondary-color);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+a:hover {
+  color: var(--primary-color);
+  text-decoration: underline;
+}
+
+/* Navegación */
+.navbar {
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Tabla de contenidos */
+#TOC {
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+  padding: 1rem;
+  background-color: #F8F9FA;
+}
+
+#TOC ul {
+  list-style-type: none;
+  padding-left: 1rem;
+}
+
+#TOC li {
+  margin: 0.5rem 0;
+}
+
+/* Bloques de resultados R */
+.cell-output {
+  border-left: 3px solid var(--success-color);
+  padding-left: 1rem;
+  margin: 1rem 0;
+}
+
+/* Botones de código */
+.code-tools-button {
+  background-color: var(--secondary-color);
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.code-tools-button:hover {
+  background-color: var(--primary-color);
+}
+
+/* Footer */
+footer {
+  border-top: 2px solid var(--border-color);
+  margin-top: 3rem;
+  padding-top: 2rem;
+  color: #666;
+  text-align: center;
+}
+
+/* Responsividad */
+@media (max-width: 768px) {
+  body {
+    font-size: 14px;
+  }
+  
+  h1 {
+    font-size: 1.8rem;
+  }
+  
+  h2 {
+    font-size: 1.5rem;
+  }
+  
+  table {
+    font-size: 0.85em;
+  }
+}
+
+/* Impresión */
+@media print {
+  .navbar, .sidebar, .code-tools-button {
+    display: none;
+  }
+  
+  body {
+    font-size: 11pt;
+    line-height: 1.4;
+  }
+  
+  h1, h2, h3 {
+    page-break-after: avoid;
+  }
+  
+  pre, blockquote {
+    page-break-inside: avoid;
+  }
+}

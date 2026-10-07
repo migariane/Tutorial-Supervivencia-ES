@@ -1,0 +1,52 @@
+project:
+  type: website
+  output-dir: _site
+
+website:
+  title: "Tutorial de Análisis de Supervivencia"
+  page-navigation: true
+  navbar:
+    background: primary
+    left:
+      - text: "Inicio"
+        href: index.qmd
+    right:
+      - icon: github
+        href: https://github.com/migariane/Tutorial-Supervivencia-ES
+  sidebar:
+    style: "docked"
+    contents:
+      - section: "Contenido"
+        contents:
+          - index.qmd
+
+format:
+  html:
+    theme: 
+      light: flatly
+      dark: darkly
+    css: styles.css
+    toc: true
+    toc-depth: 3
+    toc-location: right
+    number-sections: true
+    code-fold: false
+    code-tools: true
+    code-copy: true
+    code-overflow: wrap
+    highlight-style: github
+    fig-width: 8
+    fig-height: 6
+    df-print: paged
+    anchor-sections: true
+    smooth-scroll: true
+    link-external-newwindow: true
+
+bibliography: references.bib
+csl: vancouver.csl
+
+execute:
+  cache: true
+  freeze: auto
+  warning: false
+  message: false
