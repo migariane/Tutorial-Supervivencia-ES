@@ -7,6 +7,8 @@
 
 Tutorial exhaustivo sobre análisis de supervivencia en R, cubriendo desde conceptos fundamentales hasta técnicas avanzadas de modelización. Este material didáctico presenta métodos estadísticos rigurosos con ejemplos prácticos y código reproducible.
 
+**Keywords**: análisis de supervivencia, survival analysis, Kaplan-Meier, modelo de Cox, riesgos proporcionales, censura, modelos paramétricos, R, bioestadística, epidemiología, métodos estadísticos, tiempo hasta el evento, riesgos competitivos
+
 ## 🎯 Contenido
 
 - **Conceptos fundamentales**: Función de supervivencia, función de riesgo, censura
@@ -18,7 +20,7 @@ Tutorial exhaustivo sobre análisis de supervivencia en R, cubriendo desde conce
 ## 📚 Acceso al Tutorial
 
 El tutorial completo está disponible en:
-**https://[tu-usuario].github.io/Tutorial-Supervivencia-ES/**
+**https://migariane.github.io/Tutorial-Supervivencia-ES/**
 
 ## 🛠️ Requisitos
 
@@ -39,7 +41,7 @@ install.packages(c("survival", "survminer", "flexsurv", "KMsurv",
 
 ```bash
 # Clonar el repositorio
-git clone https://github.com/[tu-usuario]/Tutorial-Supervivencia-ES.git
+git clone https://github.com/migariane/Tutorial-Supervivencia-ES.git
 cd Tutorial-Supervivencia-ES
 
 # Renderizar con Quarto

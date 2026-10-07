@@ -13,7 +13,7 @@ abstract: |
   hasta que ocurre un evento de interés, considerando la presencia de datos censurados. 
   Se presentan métodos no paramétricos (Kaplan-Meier), semiparamétricos (Cox) y 
   paramétricos (Weibull, exponencial), con ejemplos prácticos implementados en R.
-keywords: [análisis de supervivencia, Kaplan-Meier, modelo de Cox, censura, riesgo proporcional]
+keywords: [análisis de supervivencia, survival analysis, Kaplan-Meier, modelo de Cox, censura, riesgo proporcional, modelos paramétricos, bioestadística, epidemiología, tiempo hasta el evento, riesgos competitivos, R]
 lang: es
 ---
 
