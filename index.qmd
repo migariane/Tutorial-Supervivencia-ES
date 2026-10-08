@@ -74,6 +74,10 @@ Ocurre cuando el evento ya ha ocurrido antes del inicio del estudio. Menos comú
 
 El evento ocurre en un intervalo conocido $(L_i, R_i]$ pero no se conoce el tiempo exacto.
 
+### Supuesto fundamental: censura independiente
+
+La validez de los métodos de este tutorial (Kaplan-Meier, log-rank, Cox) descansa en el supuesto de **censura independiente** (o *no informativa*): condicional a las covariables observadas, la censura no debe contener información sobre el tiempo del evento. Es decir, los sujetos censurados en el tiempo $t$ deben ser representativos de los que permanecen en riesgo. La censura administrativa (fin del estudio) suele ser no informativa, mientras que la pérdida de seguimiento por empeoramiento clínico puede violar este supuesto y sesgar las estimaciones [@klein2003; @hosmer2008].
+
 ## Configuración del entorno
 
 ```{r setup}
@@ -130,7 +134,7 @@ $$
 h(t) = \lim_{\Delta t \to 0} \frac{P(t \leq T < t + \Delta t \mid T \geq t)}{\Delta t} = \frac{f(t)}{S(t)} = -\frac{d \log S(t)}{dt}
 $$
 
-**Interpretación**: $h(t)$ es la probabilidad condicional instantánea del evento.
+**Interpretación**: $h(t)$ es la probabilidad condicional instantánea del evento. Es importante recordar que la función de riesgo es una **tasa** (con unidades de eventos por unidad de tiempo) y no una probabilidad: a diferencia de $S(t)$ y $F(t)$, que están acotadas en $[0,1]$, el hazard puede tomar cualquier valor no negativo, $h(t) \geq 0$ [@kleinbaum2012].
 
 ## Función de riesgo acumulado
 
@@ -177,6 +181,8 @@ $$
 \hat{S}(t) = \prod_{j: t_j \leq t} \left(1 - \frac{d_j}{n_j}\right)
 $$
 
+**Idea intuitiva**: para sobrevivir hasta $t$, el individuo debe "superar" cada uno de los tiempos de evento $t_j \leq t$. En cada salto, la probabilidad condicional de sobrevivir es $1 - d_j/n_j$ (los que no experimentan el evento entre los que aún estaban en riesgo). El producto de estas probabilidades condicionales da $\hat{S}(t)$. Los individuos censurados contribuyen al denominador $n_j$ (están en riesgo) hasta su censura, pero no generan saltos en la curva: este es el mecanismo por el que el estimador aprovecha la información parcial de la censura [@kaplan1958; @klein2003].
+
 ### Varianza del estimador
 
 La varianza se estima mediante la **fórmula de Greenwood** [@greenwood1926]:
@@ -209,7 +215,7 @@ $$
 
 ### Ejemplo: datos de leucemia
 
-Utilizamos los datos clásicos de Freireich et al. (1963) sobre tiempos de remisión en leucemia aguda.
+Utilizamos los datos clásicos de Freireich et al. [@freireich1963] sobre tiempos de remisión en leucemia aguda, que comparan dos grupos de tratamiento (quimioterapia mantenida frente a no mantenida).
 
 ```{r km-ejemplo}
 #| label: fig-km-leucemia
@@ -266,6 +272,8 @@ print(km_fit, print.rmean = TRUE)
 
 El **test de log-rank** [@mantel1966] compara dos o más curvas de supervivencia. Es el más utilizado y da peso igual a todos los tiempos.
 
+**Propiedad importante**: el test de log-rank equivale al *score test* del modelo de Cox con una única covariable indicadora de grupo, por lo que es óptimo (máxima potencia) cuando la razón de riesgos entre grupos es constante en el tiempo, es decir, bajo la asunción de riesgos proporcionales [@kleinbaum2012; @hosmer2008].
+
 **Hipótesis**:
 
 - $H_0$: Las funciones de riesgo son iguales en todos los grupos ($h_1(t) = h_2(t) = \cdots = h_K(t)$)
@@ -285,6 +293,18 @@ $$
 
 donde $O_k = \sum_j O_{kj}$ y $E_k = \sum_j E_{kj}$.
 
+**Generalización (familia de tests ponderados)**: los tests de log-rank, Wilcoxon y Tarone-Ware son casos particulares de la misma familia estadística,
+
+$$
+\chi^2_W = \left(\sum_j w_j (O_{1j} - E_{1j})\right)^2 \Big/ \sum_j w_j^2 \, \text{Var}(O_{1j} - E_{1j}),
+$$
+
+que se distinguen por el peso $w_j$ asignado a cada tiempo $t_j$:
+
+- **Log-rank**: $w_j = 1$ (igual peso; óptimo bajo riesgos proporcionales)
+- **Wilcoxon (Peto-Peto)**: $w_j = n_j$ (más peso a tiempos tempranos) [@peto1972]
+- **Tarone-Ware**: $w_j = \sqrt{n_j}$ (compromiso intermedio)
+
 ```{r logrank}
 # Test de log-rank
 survdiff(Surv(time, status) ~ x, data = aml)
@@ -292,7 +312,7 @@ survdiff(Surv(time, status) ~ x, data = aml)
 
 ### Test de Wilcoxon-Breslow-Gehan
 
-Variante que da más peso a tiempos tempranos:
+Variante que da más peso a tiempos tempranos [@peto1972]:
 
 $$
 W = \sum_{k=1}^K \sum_j n_j (O_{kj} - E_{kj})
@@ -309,17 +329,19 @@ Compromiso entre log-rank y Wilcoxon, usando pesos $w_j = \sqrt{n_j}$.
 
 ## Estimador de Nelson-Aalen
 
-Alternativa al estimador de Kaplan-Meier, estima directamente el riesgo acumulado:
+Alternativa al estimador de Kaplan-Meier, estima directamente el riesgo acumulado [@nelson1972; @aalen1980]:
 
 $$
 \hat{H}(t) = \sum_{j: t_j \leq t} \frac{d_j}{n_j}
 $$
 
-La función de supervivencia se estima como:
+donde $d_j/n_j$ es el **incremento de riesgo** en el tiempo $t_j$ (número de eventos dividido por el número de individuos en riesgo). A partir de él, la función de supervivencia se estima como:
 
 $$
 \hat{S}(t) = \exp(-\hat{H}(t))
 $$
+
+**Relación con Kaplan-Meier**: para muestras pequeñas, $\hat{S}_{NA}(t) = \exp(-\hat{H}(t))$ es mayor o igual que el estimador de Kaplan-Meier, y ambos convergen asintóticamente. La fórmula de Greenwood y la de Nelson-Aalen se pueden ver como dos aproximaciones distintas de la misma varianza del logaritmo del riesgo acumulado. El estimador de Nelson-Aalen es la base del **estimador de Breslow** [@breslow1974] de la función de riesgo basal en el modelo de Cox.
 
 ```{r nelson-aalen}
 #| label: fig-nelson-aalen
@@ -339,7 +361,15 @@ plot(na_fit, conf.int = FALSE, main = "Nelson-Aalen", xlab = "Tiempo", ylab = "S
 
 # Modelos paramétricos {#sec-parametricos}
 
-Los modelos paramétricos asumen que los tiempos de supervivencia siguen una distribución de probabilidad específica.
+Los modelos paramétricos asumen que los tiempos de supervivencia siguen una distribución de probabilidad específica. A diferencia del estimador de Kaplan-Meier (completamente no paramétrico), estos modelos imponen una forma funcional para la función de riesgo, lo que permite **extrapolar** más allá del último tiempo observado, obtener estimaciones más eficientes (menor varianza) cuando el modelo es correcto y realizar predicciones explícitas de la función de supervivencia.
+
+Todos los modelos ajustados con `survreg()` en R pertenecen a la clase de **modelos de tiempo de fallo acelerado (AFT, *accelerated failure time*)**, que se escriben como:
+
+$$
+\log T_i = \mu + \boldsymbol{\beta}' \mathbf{X}_i + \sigma W_i
+$$
+
+donde $W_i$ es un error con distribución fija (normal, valor extremo, logística, etc.) y $\sigma$ es un parámetro de escala. La interpretación del coeficiente $\beta$ en un modelo AFT es **directa**: $\exp(-\beta_k)$ es el factor por el que se *acelera* (o *decelera*) el tiempo hasta el evento por cada unidad de aumento en $X_k$. Por ejemplo, $\exp(-\beta)=2$ implica que los tiempos se duplican. Esta interpretación contrasta con la del modelo de Cox, donde $\exp(\beta)$ actúa sobre el riesgo y no sobre el tiempo [@kleinbaum2012; @hosmer2008].
 
 ## Distribución exponencial
 
@@ -541,24 +571,34 @@ kable(comparacion, digits = 2, caption = "Comparación de modelos paramétricos"
 # Grilla de tiempos (en el rango observado)
 times_grid <- seq(min(aml$time), max(aml$time), length.out = 100)
 
-# KM para comparación
+# KM de referencia (población completa)
 km_ref <- survfit(Surv(time, status) ~ 1, data = aml)
 
-# Curvas paramétricas (grupo de referencia x=0)
-# Exponencial: S(t) = exp(-lambda_exp * t)
-S_exp <- exp(-lambda_exp * times_grid)
+# Reajustamos los modelos paramétricos SIN covariante (población completa),
+# para compararlos de forma justa contra el KM global. Usar el intercepto de
+# los modelos con `~ x` representaría únicamente el grupo de referencia.
+fit_exp  <- survreg(Surv(time, status) ~ 1, data = aml, dist = "exponential")
+fit_weib <- survreg(Surv(time, status) ~ 1, data = aml, dist = "weibull")
+fit_ln   <- survreg(Surv(time, status) ~ 1, data = aml, dist = "lognormal")
+fit_ll   <- survreg(Surv(time, status) ~ 1, data = aml, dist = "loglogistic")
 
-# Weibull: S(t) = exp(-lambda_weib * t^gamma_weib)
-S_weib <- exp(-lambda_weib * times_grid^(gamma_weib))
+# Exponencial: S(t) = exp(-lambda * t)
+l_exp  <- 1 / exp(coef(fit_exp)[1])
+S_exp  <- exp(-l_exp * times_grid)
+
+# Weibull: S(t) = exp(-lambda * t^gamma)
+g_w   <- 1 / fit_weib$scale
+l_w   <- exp(-coef(fit_weib)[1] / fit_weib$scale)
+S_weib <- exp(-l_w * times_grid^g_w)
 
 # Log-normal: S(t) = 1 - Phi((log t - mu)/sigma)
-mu_ln  <- coef(lognorm_fit)[1]
-sig_ln <- lognorm_fit$scale
+mu_ln  <- coef(fit_ln)[1]
+sig_ln <- fit_ln$scale
 S_logn <- 1 - pnorm((log(times_grid) - mu_ln) / sig_ln)
 
 # Log-logística: S(t) = 1 / (1 + lambda * t^gamma)
-mu_ll  <- coef(loglog_fit)[1]
-sig_ll <- loglog_fit$scale
+mu_ll  <- coef(fit_ll)[1]
+sig_ll <- fit_ll$scale
 g_ll   <- 1 / sig_ll
 l_ll   <- exp(-mu_ll / sig_ll)
 S_logl <- 1 / (1 + l_ll * times_grid^g_ll)
@@ -630,6 +670,16 @@ $$
 
 donde $R(t_i)$ es el conjunto de riesgo en el tiempo $t_i$ (individuos que no han experimentado el evento ni han sido censurados antes de $t_i$).
 
+**Estimación de la función de riesgo basal**: una vez estimados los coeficientes $\hat{\boldsymbol{\beta}}$, la función de riesgo acumulada basal se estima mediante el **estimador de Breslow** [@breslow1974],
+
+$$
+\hat{H}_0(t) = \sum_{j: t_j \leq t} \frac{d_j}{\sum_{\ell \in R(t_j)} \exp(\hat{\boldsymbol{\beta}}' \mathbf{X}_\ell)},
+$$
+
+que generaliza el estimador de Nelson-Aalen al caso con covariables. A partir de él se obtiene la supervivencia basal $\hat{S}_0(t) = \exp(-\hat{H}_0(t))$ y la supervivencia individual $\hat{S}(t \mid \mathbf{X}) = \hat{S}_0(t)^{\exp(\hat{\boldsymbol{\beta}}' \mathbf{X})}$.
+
+**Empates (*ties*)**: cuando varios individuos experimentan el evento exactamente en el mismo tiempo, la verosimilitud parcial exacta requiere enumerar todos los ordenamientos posibles, lo que es computacionalmente costoso. En la práctica se usan aproximaciones: **Breslow** (la más simple, ligeramente sesgada con muchos empates) y **Efron** (más precisa y la opción por defecto en `coxph()` de R) [@therneau2000; @klein2003].
+
 ## Ejemplo: datos de cáncer de pulmón
 
 ```{r cox-ejemplo}
@@ -680,13 +730,13 @@ summary(cox_strat)
 
 #### Test de Schoenfeld
 
-Los **residuos de Schoenfeld** permiten verificar la asunción de riesgos proporcionales:
+Los **residuos de Schoenfeld** [@schoenfeld1982] permiten verificar la asunción de riesgos proporcionales. Para cada covariable $k$, se define un residuo en cada tiempo de evento $t_i$:
 
 $$
 r_{ik} = \delta_i \left[X_{ik} - \frac{\sum_{j \in R(t_i)} X_{jk} \exp(\boldsymbol{\beta}' \mathbf{X}_j)}{\sum_{j \in R(t_i)} \exp(\boldsymbol{\beta}' \mathbf{X}_j)}\right]
 $$
 
-Si la asunción se cumple, los residuos escalados deben tener pendiente cero al graficarlos contra el tiempo.
+El término entre corchetes es la diferencia entre el valor observado $X_{ik}$ y la **media ponderada** de $X_k$ entre los individuos aún en riesgo en $t_i$; por tanto, el residuo mide cuánto se desvía una covariable de lo que "se esperaría" si el riesgo fuera proporcional. Si la asunción se cumple, los residuos escalados deben ser independientes del tiempo, es decir, su gráfico contra $t$ debe tener pendiente cero (en la práctica, una banda de suavizado localmente horizontal). La función `cox.zph()` contrasta formalmente esta hipótesis para cada covariable y globalmente [@therneau2000].
 
 ```{r schoenfeld}
 #| label: fig-schoenfeld
@@ -727,6 +777,8 @@ Los **residuos de martingale** detectan la forma funcional de covariables contin
 $$
 M_i = \delta_i - \hat{H}_0(t_i) \exp(\boldsymbol{\beta}' \mathbf{X}_i)
 $$
+
+es decir, el número de eventos observados ($\delta_i$, 0 o 1) menos el número de eventos *esperados* bajo el modelo. Toman valores en $(-\infty, 1]$, con media cero y están correlacionados entre sí. Su utilidad principal es diagnosticar la **forma funcional** de covariables continuas: al representarlos frente a la covariable $X_k$, la desviación sistemática de la horizontal indica que $X_k$ no entra linealmente en el modelo (p. ej., requiere una transformación o un *spline*). Estos residuos surgen de la formulación del modelo de Cox como **proceso de conteo** mediante la teoría de martingalas [@therneau2000; @andersen1982].
 
 ```{r martingala}
 #| label: fig-martingala
@@ -833,7 +885,7 @@ summary(cox_spline)
 
 ## Riesgos competitivos {#sec-competitivos}
 
-Los **riesgos competitivos** ocurren cuando un sujeto puede experimentar uno de varios eventos mutuamente excluyentes.
+Los **riesgos competitivos** ocurren cuando un sujeto puede experimentar uno de varios eventos mutuamente excluyentes (por ejemplo, morir por cáncer frente a morir por enfermedad cardiovascular). La ocurrencia de un evento **impide** observar los demás, lo que genera un tipo de censura *informativa* que no puede tratarse con los métodos estándar.
 
 ### Función de incidencia acumulada
 
@@ -843,9 +895,16 @@ $$
 F_k(t) = P(T \leq t, \text{tipo } = k) = \int_0^t S(u) h_k(u) \, du
 $$
 
-donde $S(t)$ es la supervivencia global y $h_k(t)$ es el riesgo causa-específico (*cause-specific hazard*).
+donde $S(t)$ es la supervivencia global (probabilidad de no haber sufrido *ningún* evento) y $h_k(t)$ es el riesgo causa-específico (*cause-specific hazard*).
 
 **Propiedad**: $\sum_{k=1}^K F_k(\infty) = 1$ si todos eventualmente experimentan algún evento.
+
+**Distinción clave**: existen dos riesgos distintos que no deben confundirse [@fine1999; @gray1988]:
+
+- El **riesgo causa-específico** $h_k(t)$, que modela la tasa instantánea del evento $k$ entre los sujetos *aún libres de cualquier evento*. Es el análogo natural del hazard en ausencia de competencia.
+- El **riesgo de subdistribución** $h_k^*(t)$, que modela la tasa instantánea del evento $k$ entre los sujetos *que aún no han sufrido el evento $k$* (incluyendo a los que ya sufrieron otro evento, que permanecen en el denominador). Es la cantidad directamente ligada a la CIF mediante $F_k(t) = 1 - \exp(-\int_0^t h_k^*(u)\,du)$.
+
+En presencia de competencia, un mismo coeficiente estimado con el modelo causa-específico (Cox) y con el modelo de subdistribución (Fine-Gray) puede tener signo y magnitud **diferentes**, porque responden a preguntas distintas.
 
 ### Test de Gray
 
@@ -885,13 +944,13 @@ print(cif_fit)
 
 ### Modelo de subdistribución de Fine-Gray
 
-El **modelo de Fine-Gray** [@fine1999] modela directamente la CIF:
+El **modelo de Fine-Gray** [@fine1999] modela directamente la CIF a través del riesgo de subdistribución:
 
 $$
 h_k^*(t \mid \mathbf{X}) = h_{0k}^*(t) \exp(\boldsymbol{\beta}_k' \mathbf{X})
 $$
 
-donde $h_k^*(t)$ es el riesgo de subdistribución (*subdistribution hazard*).
+donde $h_k^*(t)$ es el riesgo de subdistribución (*subdistribution hazard*). A diferencia del modelo causa-específico de Cox, el modelo de Fine-Gray mantiene en el conjunto de riesgo a los sujetos que ya han sufrido un evento competitivo (ponderándolos de forma decreciente), de modo que $\exp(\beta)$ tiene una interpretación **directa sobre la incidencia acumulada**: un $\text{HR} > 1$ indica mayor probabilidad de sufrir el evento $k$ a lo largo del tiempo. Esta es la razón por la que es el modelo preferido cuando el objetivo es **predecir el riesgo absoluto** de un evento concreto, mientras que el modelo causa-específico se prefiere para estudiar la **etiología** del evento [@fine1999; @kleinbaum2012].
 
 ```{r fine-gray}
 # Modelo de Fine-Gray
@@ -913,6 +972,8 @@ $$
 
 donde $Z_i$ es la fragilidad (usualmente $Z_i \sim \text{Gamma}(\theta, \theta)$ con $E[Z_i] = 1$).
 
+**Motivación**: cuando los datos están **agrupados** (pacientes dentro de hospitales, hermanos en la misma camada, eventos recurrentes del mismo sujeto), las observaciones dentro de un grupo comparten factores no medidos. El efecto aleatorio $Z_i$ captura esta correlación: los sujetos con $Z_i > 1$ son más "frágiles" (mayor riesgo) y los que comparten grupo tienden a parecerse. El parámetro $\theta$ controla la dispersión de la fragilidad ($\theta \to 0$ indica homogeneidad). Ignorar esta agrupación puede llevar a errores estándar subestimados e inferencia incorrecta [@therneau2000; @therneau2022].
+
 **Aplicaciones**: Datos agrupados (pacientes dentro de hospitales) o eventos recurrentes.
 
 ```{r fragilidad}
@@ -926,7 +987,7 @@ summary(frailty_fit)
 
 ## Eventos recurrentes
 
-Para sujetos que pueden experimentar el evento múltiples veces.
+Para sujetos que pueden experimentar el evento múltiples veces (p. ej., hospitalizaciones, infecciones). Cada sujeto puede contribuir con varios intervalos de riesgo.
 
 ### Procesos de conteo
 
@@ -936,13 +997,15 @@ $$
 \lambda_i(t \mid \mathbf{X}_i) = Y_i(t) h_0(t) \exp(\boldsymbol{\beta}' \mathbf{X}_i)
 $$
 
-donde $Y_i(t)$ indica si el sujeto $i$ está en riesgo en el tiempo $t$.
+donde $Y_i(t)$ indica si el sujeto $i$ está en riesgo en el tiempo $t$. Esta formulación de **procesos de conteo** es la base teórica general del modelo de Cox [@andersen1982], y permite representar tanto la censura por la derecha como los eventos recurrentes con datos en formato $(t_{\text{start}}, t_{\text{stop}}]$.
 
 ### Modelos para eventos recurrentes
 
-1. **Andersen-Gill (AG)**: Todos los eventos se tratan igualmente
-2. **Prentice-Williams-Peterson (PWP)**: Estratifica por número de evento
-3. **Wei-Lin-Weissfeld (WLW)**: Modelo marginal para cada evento
+1. **Andersen-Gill (AG)**: Todos los eventos se tratan igualmente [@andersen1982]. Modelo de intensidad con un único efecto de covariable; asume independencia entre eventos del mismo sujeto y usa errores robustos (*sandwich*) por sujeto.
+2. **Prentice-Williams-Peterson (PWP)**: Estratifica por número de evento (el sujeto no puede sufrir el evento $k$ hasta no haber sufrido el $k-1$).
+3. **Wei-Lin-Weissfeld (WLW)**: Modelo marginal para cada evento.
+
+La elección entre AG, PWP y WLW depende de si el interés está en el **tiempo total** de eventos (AG), en el **tiempo entre eventos consecutivos** (PWP) o en el **marginal por evento** (WLW) [@therneau2000; @kleinbaum2012].
 
 ```{r recurrentes}
 # Ejemplo con datos simulados de eventos recurrentes
