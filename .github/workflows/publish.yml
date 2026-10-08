@@ -40,13 +40,12 @@ jobs:
         run: |
           echo "Repo root: $(pwd)"
           ls -la
-          ls -la SURVIVAL/Tutorial-Supervivencia-ES || true
-          quarto render SURVIVAL/Tutorial-Supervivencia-ES/index.qmd
+          quarto render
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: SURVIVAL/Tutorial-Supervivencia-ES/_site
+          path: _site
 
   deploy:
     environment:
