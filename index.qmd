@@ -30,16 +30,20 @@ El **análisis de supervivencia** es un conjunto de métodos estadísticos dise�
 - **Economía**: duración del desempleo, permanencia en un trabajo
 - **Ciencias sociales**: duración de matrimonios, tiempo hasta reincidencia criminal
 
+En términos prácticos, el objetivo suele ser doble: (1) **describir** cómo cambia la probabilidad de seguir libre de evento con el tiempo (p.ej., curvas Kaplan–Meier) y (2) **cuantificar el efecto** de covariables sobre el riesgo de evento (p.ej., modelo de Cox). Un punto clave es que el análisis no se basa en “promedios del tiempo” solamente, sino en la **estructura temporal** y en cómo la censura altera (o no) la información disponible.
+
 ## Características especiales de los datos de supervivencia
 
 Los datos de supervivencia presentan dos características distintivas:
 
-1. **Positividad**: Los tiempos de supervivencia son siempre positivos ($T > 0$)
-2. **Censura**: No siempre observamos el evento de interés para todos los sujetos
+1.  **Positividad**: Los tiempos de supervivencia son siempre positivos ($T > 0$)
+2.  **Censura**: No siempre observamos el evento de interés para todos los sujetos
 
 ## Censura {#sec-censura}
 
 La **censura** es la característica más importante que distingue al análisis de supervivencia de otros métodos estadísticos. Un dato está **censurado** cuando no observamos el tiempo exacto del evento.
+
+Interpretación humana: si durante el seguimiento un paciente “sale del radar” (por ejemplo, porque el estudio termina o porque se pierde el contacto), no sabemos cuándo habría ocurrido el evento, pero sí sabemos que **todavía no había ocurrido antes de ese momento**. Esa información “parcial” es la que los métodos de supervivencia aprenden a usar, y por eso las curvas y los tests no se pueden replicar con técnicas estándar para datos completos.
 
 ### Tipos de censura
 
@@ -53,18 +57,14 @@ El tipo más común. Ocurre cuando:
 
 **Notación**: Si $T_i$ es el verdadero tiempo de supervivencia y $C_i$ el tiempo de censura, observamos:
 
-$$
-Y_i = \min(T_i, C_i)
-$$
+$$Y_i = \min(T_i, C_i)$$
 
 y el indicador de censura:
 
-$$
-\delta_i = \begin{cases}
+$$\delta_i = \begin{cases}
 1 & \text{si } T_i \leq C_i \text{ (evento observado)} \\
 0 & \text{si } T_i > C_i \text{ (censurado)}
-\end{cases}
-$$
+\end{cases}$$
 
 #### Censura por la izquierda
 
@@ -106,67 +106,63 @@ theme_set(theme_minimal())
 
 La **función de supervivencia** $S(t)$ define la probabilidad de que un individuo sobreviva más allá del tiempo $t$:
 
-$$
-S(t) = P(T > t) = 1 - F(t)
-$$
+Lectura intuitiva: $S(t)$ responde a la pregunta “si el paciente ha llegado hasta (o más allá de) el tiempo 0, ¿qué fracción esperada seguiría sin evento después del tiempo $t$?”. En presencia de censura, $S(t)$ no se “cuenta” directamente como proporción cruda, sino que se estima usando información de quién permaneció en riesgo.
+
+$$S(t) = P(T > t) = 1 - F(t)$$
 
 donde $F(t) = P(T \leq t)$ es la función de distribución acumulada.
 
 **Propiedades**:
 
-1. $S(0) = 1$ (todos están vivos al inicio)
-2. $S(\infty) = 0$ (eventualmente todos experimentan el evento)
-3. $S(t)$ es una función decreciente y continua por la derecha
+1.  $S(0) = 1$ (todos están vivos al inicio)
+2.  $S(\infty) = 0$ (eventualmente todos experimentan el evento)
+3.  $S(t)$ es una función decreciente y continua por la derecha
 
 ## Función de densidad
 
 La **función de densidad** de probabilidad se define como:
 
-$$
-f(t) = \lim_{\Delta t \to 0} \frac{P(t \leq T < t + \Delta t)}{\Delta t} = \frac{dF(t)}{dt} = -\frac{dS(t)}{dt}
-$$
+$$f(t) = \lim_{\Delta t \to 0} \frac{P(t \leq T < t + \Delta t)}{\Delta t} = \frac{dF(t)}{dt} = -\frac{dS(t)}{dt}$$
 
 ## Función de riesgo (hazard)
 
 La **función de riesgo** $h(t)$ (o *hazard function*) representa la tasa instantánea de ocurrencia del evento en el tiempo $t$, dado que el individuo ha sobrevivido hasta ese momento:
 
-$$
-h(t) = \lim_{\Delta t \to 0} \frac{P(t \leq T < t + \Delta t \mid T \geq t)}{\Delta t} = \frac{f(t)}{S(t)} = -\frac{d \log S(t)}{dt}
-$$
+$$h(t) = \lim_{\Delta t \to 0} \frac{P(t \leq T < t + \Delta t \mid T \geq t)}{\Delta t} = \frac{f(t)}{S(t)} = -\frac{d \log S(t)}{dt}$$
 
-**Interpretación**: $h(t)$ es la probabilidad condicional instantánea del evento. Es importante recordar que la función de riesgo es una **tasa** (con unidades de eventos por unidad de tiempo) y no una probabilidad: a diferencia de $S(t)$ y $F(t)$, que están acotadas en $[0,1]$, el hazard puede tomar cualquier valor no negativo, $h(t) \geq 0$ [@kleinbaum2012].
+**Interpretación**: $h(t)$ es la probabilidad condicional instantánea del evento. Es importante recordar que la función de riesgo es una **tasa** (con unidades de eventos por unidad de tiempo) y no una probabilidad: a diferencia de $S(t)$ y $F(t)$, que están acotadas en $[0,1]$, el hazard puede tomar cualquier valor no negativo, $h(t) \ge 0$ [@kleinbaum2012].
+
+Traducción a lenguaje natural: $h(t)$ compara el “peligro” de que ocurra el evento en $t$ para quienes todavía no lo han tenido; no dice directamente “probabilidad final”, sino la intensidad local del riesgo.
 
 ## Función de riesgo acumulado
 
 La **función de riesgo acumulado** $H(t)$ se define como:
 
-$$
-H(t) = \int_0^t h(u) \, du = -\log S(t)
-$$
+Interpretación: mientras que $h(t)$ es el “peligro” instantáneo en un instante, $H(t)$ es la **acumulación de ese peligro desde 0 hasta** $t$. Esta es la razón por la que aparece en la relación $S(t)=\exp(-H(t))$: si $H(t)$ crece rápido, $S(t)$ cae rápido.
+
+$$H(t) = \int_0^t h(u) \, du = -\log S(t)$$
 
 De donde se deduce:
 
-$$
-S(t) = \exp\left(-H(t)\right) = \exp\left(-\int_0^t h(u) \, du\right)
-$$
+$$S(t) = \exp\left(-H(t)\right) = \exp\left(-\int_0^t h(u) \, du\right)$$
 
 ## Relaciones entre funciones
 
 Las cuatro funciones ($S(t)$, $f(t)$, $h(t)$, $H(t)$) están interrelacionadas:
 
-$$
-\begin{aligned}
+$$\begin{aligned}
 S(t) &= \exp\left(-\int_0^t h(u) \, du\right) \\
 f(t) &= h(t) S(t) \\
 h(t) &= \frac{f(t)}{S(t)} = -\frac{d \log S(t)}{dt}
-\end{aligned}
-$$
+\end{aligned}$$
 
 # Métodos no paramétricos {#sec-noparametricos}
 
 ## Estimador de Kaplan-Meier {#sec-km}
 
 El **estimador de Kaplan-Meier** [@kaplan1958] es el método no paramétrico más utilizado para estimar la función de supervivencia en presencia de censura.
+
+Lectura práctica: la curva KM “salta” únicamente en los tiempos donde se observan eventos (no en los tiempos de censura). La censura, en cambio, influye en la curva **porque reduce el denominador** (el número en riesgo) a partir de su tiempo de salida.
 
 ### Construcción del estimador
 
@@ -177,9 +173,7 @@ Sean $t_1 < t_2 < \cdots < t_k$ los tiempos únicos de eventos observados. En ca
 
 El estimador de Kaplan-Meier es:
 
-$$
-\hat{S}(t) = \prod_{j: t_j \leq t} \left(1 - \frac{d_j}{n_j}\right)
-$$
+$$\hat{S}(t) = \prod_{j: t_j \leq t} \left(1 - \frac{d_j}{n_j}\right)$$
 
 **Idea intuitiva**: para sobrevivir hasta $t$, el individuo debe "superar" cada uno de los tiempos de evento $t_j \leq t$. En cada salto, la probabilidad condicional de sobrevivir es $1 - d_j/n_j$ (los que no experimentan el evento entre los que aún estaban en riesgo). El producto de estas probabilidades condicionales da $\hat{S}(t)$. Los individuos censurados contribuyen al denominador $n_j$ (están en riesgo) hasta su censura, pero no generan saltos en la curva: este es el mecanismo por el que el estimador aprovecha la información parcial de la censura [@kaplan1958; @klein2003].
 
@@ -187,15 +181,11 @@ $$
 
 La varianza se estima mediante la **fórmula de Greenwood** [@greenwood1926]:
 
-$$
-\widehat{\text{Var}}[\hat{S}(t)] = \hat{S}(t)^2 \sum_{j: t_j \leq t} \frac{d_j}{n_j(n_j - d_j)}
-$$
+$$\widehat{\text{Var}}[\hat{S}(t)] = \hat{S}(t)^2 \sum_{j: t_j \leq t} \frac{d_j}{n_j(n_j - d_j)}$$
 
 El **error estándar** es:
 
-$$
-\widehat{\text{SE}}[\hat{S}(t)] = \sqrt{\widehat{\text{Var}}[\hat{S}(t)]}
-$$
+$$\widehat{\text{SE}}[\hat{S}(t)] = \sqrt{\widehat{\text{Var}}[\hat{S}(t)]}$$
 
 ### Intervalos de confianza
 
@@ -203,15 +193,11 @@ El intervalo de confianza al $(1-\alpha) \times 100\%$ para $S(t)$ se puede cons
 
 **Método lineal** (puede producir límites fuera de $[0,1]$):
 
-$$
-\hat{S}(t) \pm z_{\alpha/2} \times \widehat{\text{SE}}[\hat{S}(t)]
-$$
+$$\hat{S}(t) \pm z_{\alpha/2} \times \widehat{\text{SE}}[\hat{S}(t)]$$
 
 **Método log-log** (recomendado, garantiza $\hat{S}(t) \in [0,1]$):
 
-$$
-\hat{S}(t)^{\exp\left(\pm \frac{z_{\alpha/2}}{\log \hat{S}(t) \times \widehat{\text{SE}}[\hat{S}(t)]}\right)}
-$$
+$$\hat{S}(t)^{\exp\left(\pm \frac{z_{\alpha/2}}{\log \hat{S}(t) \times \widehat{\text{SE}}[\hat{S}(t)]}\right)}$$
 
 ### Ejemplo: datos de leucemia
 
@@ -257,9 +243,7 @@ ggsurvplot(
 
 El **tiempo de supervivencia mediano** es el tiempo $t_{0.5}$ tal que:
 
-$$
-\hat{S}(t_{0.5}) = 0.5
-$$
+$$\hat{S}(t_{0.5}) = 0.5$$
 
 ```{r km-mediana}
 # Calcular medianas
@@ -272,6 +256,8 @@ print(km_fit, print.rmean = TRUE)
 
 El **test de log-rank** [@mantel1966] compara dos o más curvas de supervivencia. Es el más utilizado y da peso igual a todos los tiempos.
 
+Interpretación de salida: si el test devuelve un p-valor pequeño, la lectura estadística habitual es “hay evidencia de que las curvas no provienen del mismo proceso generador de riesgos”; en términos de *riesgos proporcionales*, sugiere que la razón de riesgos entre grupos no es la misma a través del tiempo (o, más exactamente, que la hipótesis de igualdad de hazard no se sostiene con la información censurada disponible).
+
 **Propiedad importante**: el test de log-rank equivale al *score test* del modelo de Cox con una única covariable indicadora de grupo, por lo que es óptimo (máxima potencia) cuando la razón de riesgos entre grupos es constante en el tiempo, es decir, bajo la asunción de riesgos proporcionales [@kleinbaum2012; @hosmer2008].
 
 **Hipótesis**:
@@ -281,23 +267,17 @@ El **test de log-rank** [@mantel1966] compara dos o más curvas de supervivencia
 
 **Estadístico de prueba**: Sea $O_{kj}$ el número observado de eventos en el grupo $k$ en el tiempo $t_j$, y $E_{kj}$ el número esperado bajo $H_0$:
 
-$$
-E_{kj} = n_{kj} \times \frac{d_j}{n_j}
-$$
+$$E_{kj} = n_{kj} \times \frac{d_j}{n_j}$$
 
 El estadístico de log-rank es:
 
-$$
-\chi^2 = \sum_{k=1}^K \frac{(O_k - E_k)^2}{E_k} \sim \chi^2_{K-1}
-$$
+$$\chi^2 = \sum_{k=1}^K \frac{(O_k - E_k)^2}{E_k} \sim \chi^2_{K-1}$$
 
 donde $O_k = \sum_j O_{kj}$ y $E_k = \sum_j E_{kj}$.
 
 **Generalización (familia de tests ponderados)**: los tests de log-rank, Wilcoxon y Tarone-Ware son casos particulares de la misma familia estadística,
 
-$$
-\chi^2_W = \left(\sum_j w_j (O_{1j} - E_{1j})\right)^2 \Big/ \sum_j w_j^2 \, \text{Var}(O_{1j} - E_{1j}),
-$$
+$$\chi^2_W = \left(\sum_j w_j (O_{1j} - E_{1j})\right)^2 \Big/ \sum_j w_j^2 \, \text{Var}(O_{1j} - E_{1j}),$$
 
 que se distinguen por el peso $w_j$ asignado a cada tiempo $t_j$:
 
@@ -314,9 +294,7 @@ survdiff(Surv(time, status) ~ x, data = aml)
 
 Variante que da más peso a tiempos tempranos [@peto1972]:
 
-$$
-W = \sum_{k=1}^K \sum_j n_j (O_{kj} - E_{kj})
-$$
+$$W = \sum_{k=1}^K \sum_j n_j (O_{kj} - E_{kj})$$
 
 ```{r wilcoxon}
 # Test de Wilcoxon
@@ -331,15 +309,11 @@ Compromiso entre log-rank y Wilcoxon, usando pesos $w_j = \sqrt{n_j}$.
 
 Alternativa al estimador de Kaplan-Meier, estima directamente el riesgo acumulado [@nelson1972; @aalen1980]:
 
-$$
-\hat{H}(t) = \sum_{j: t_j \leq t} \frac{d_j}{n_j}
-$$
+$$\hat{H}(t) = \sum_{j: t_j \leq t} \frac{d_j}{n_j}$$
 
 donde $d_j/n_j$ es el **incremento de riesgo** en el tiempo $t_j$ (número de eventos dividido por el número de individuos en riesgo). A partir de él, la función de supervivencia se estima como:
 
-$$
-\hat{S}(t) = \exp(-\hat{H}(t))
-$$
+$$\hat{S}(t) = \exp(-\hat{H}(t))$$
 
 **Relación con Kaplan-Meier**: para muestras pequeñas, $\hat{S}_{NA}(t) = \exp(-\hat{H}(t))$ es mayor o igual que el estimador de Kaplan-Meier, y ambos convergen asintóticamente. La fórmula de Greenwood y la de Nelson-Aalen se pueden ver como dos aproximaciones distintas de la misma varianza del logaritmo del riesgo acumulado. El estimador de Nelson-Aalen es la base del **estimador de Breslow** [@breslow1974] de la función de riesgo basal en el modelo de Cox.
 
@@ -365,9 +339,7 @@ Los modelos paramétricos asumen que los tiempos de supervivencia siguen una dis
 
 Todos los modelos ajustados con `survreg()` en R pertenecen a la clase de **modelos de tiempo de fallo acelerado (AFT, *accelerated failure time*)**, que se escriben como:
 
-$$
-\log T_i = \mu + \boldsymbol{\beta}' \mathbf{X}_i + \sigma W_i
-$$
+$$\log T_i = \mu + \boldsymbol{\beta}' \mathbf{X}_i + \sigma W_i$$
 
 donde $W_i$ es un error con distribución fija (normal, valor extremo, logística, etc.) y $\sigma$ es un parámetro de escala. La interpretación del coeficiente $\beta$ en un modelo AFT es **directa**: $\exp(-\beta_k)$ es el factor por el que se *acelera* (o *decelera*) el tiempo hasta el evento por cada unidad de aumento en $X_k$. Por ejemplo, $\exp(-\beta)=2$ implica que los tiempos se duplican. Esta interpretación contrasta con la del modelo de Cox, donde $\exp(\beta)$ actúa sobre el riesgo y no sobre el tiempo [@kleinbaum2012; @hosmer2008].
 
@@ -377,30 +349,24 @@ La distribución más simple. Asume **riesgo constante** $h(t) = \lambda$.
 
 ### Funciones
 
-$$
-\begin{aligned}
+$$\begin{aligned}
 f(t) &= \lambda \exp(-\lambda t) \\
 S(t) &= \exp(-\lambda t) \\
 h(t) &= \lambda \\
 H(t) &= \lambda t
-\end{aligned}
-$$
+\end{aligned}$$
 
 **Propiedad clave**: No tiene memoria. $P(T > s + t \mid T > s) = P(T > t)$.
 
 ### Media y varianza
 
-$$
-E[T] = \frac{1}{\lambda}, \quad \text{Var}(T) = \frac{1}{\lambda^2}
-$$
+$$E[T] = \frac{1}{\lambda}, \quad \text{Var}(T) = \frac{1}{\lambda^2}$$
 
 ### Estimación
 
 El estimador de máxima verosimilitud para $\lambda$ con censura es:
 
-$$
-\hat{\lambda} = \frac{\sum_{i=1}^n \delta_i}{\sum_{i=1}^n y_i}
-$$
+$$\hat{\lambda} = \frac{\sum_{i=1}^n \delta_i}{\sum_{i=1}^n y_i}$$
 
 donde $\delta_i$ es el indicador de evento e $y_i$ el tiempo observado.
 
@@ -421,14 +387,12 @@ Generalización de la exponencial que permite riesgo creciente, decreciente o co
 
 ### Funciones
 
-$$
-\begin{aligned}
+$$\begin{aligned}
 f(t) &= \lambda \gamma t^{\gamma-1} \exp(-\lambda t^\gamma) \\
 S(t) &= \exp(-\lambda t^\gamma) \\
 h(t) &= \lambda \gamma t^{\gamma-1} \\
 H(t) &= \lambda t^\gamma
-\end{aligned}
-$$
+\end{aligned}$$
 
 Parámetros:
 
@@ -442,15 +406,11 @@ Parámetros:
 
 En R, `survreg` usa la parametrización:
 
-$$
-\log T = \mu + \sigma W
-$$
+$$\log T = \mu + \sigma W$$
 
 donde $W$ sigue una distribución de valor extremo. La relación es:
 
-$$
-\gamma = \frac{1}{\sigma}, \quad \lambda = \exp(-\mu/\sigma)
-$$
+$$\gamma = \frac{1}{\sigma}, \quad \lambda = \exp(-\mu/\sigma)$$
 
 ```{r weibull}
 #| label: fig-weibull
@@ -485,12 +445,10 @@ Los logaritmos de los tiempos siguen una distribución normal.
 
 Si $\log T \sim N(\mu, \sigma^2)$:
 
-$$
-\begin{aligned}
+$$\begin{aligned}
 f(t) &= \frac{1}{t \sigma \sqrt{2\pi}} \exp\left(-\frac{(\log t - \mu)^2}{2\sigma^2}\right) \\
 S(t) &= 1 - \Phi\left(\frac{\log t - \mu}{\sigma}\right)
-\end{aligned}
-$$
+\end{aligned}$$
 
 donde $\Phi$ es la función de distribución acumulada normal estándar.
 
@@ -508,12 +466,10 @@ Similar a log-normal pero con función de supervivencia de forma cerrada.
 
 ### Funciones
 
-$$
-\begin{aligned}
+$$\begin{aligned}
 S(t) &= \frac{1}{1 + \lambda t^\gamma} \\
 h(t) &= \frac{\lambda \gamma t^{\gamma-1}}{1 + \lambda t^\gamma}
-\end{aligned}
-$$
+\end{aligned}$$
 
 **Característica**: También tiene función de riesgo que primero aumenta y luego disminuye cuando $\gamma > 1$.
 
@@ -529,15 +485,11 @@ summary(loglog_fit)
 
 **AIC (Akaike Information Criterion)**:
 
-$$
-\text{AIC} = -2 \log L + 2p
-$$
+$$\text{AIC} = -2 \log L + 2p$$
 
 **BIC (Bayesian Information Criterion)**:
 
-$$
-\text{BIC} = -2 \log L + p \log n
-$$
+$$\text{BIC} = -2 \log L + p \log n$$
 
 donde $L$ es la verosimilitud, $p$ el número de parámetros y $n$ el tamaño muestral.
 
@@ -622,13 +574,13 @@ legend("topright",
 
 El **modelo de Cox** [@cox1972] es el modelo semiparamétrico más utilizado en análisis de supervivencia.
 
+Idea útil: Cox intenta explicar por qué unos sujetos “llegan antes al evento” que otros, pero sin imponer una forma paramétrica completa para el hazard basal. En lugar de eso, modela **cómo** cambian los riesgos relativos con covariables (vía HR), dejando que la forma exacta del riesgo a lo largo del tiempo quede “flexible” en el componente basal.
+
 ## Especificación del modelo
 
 El modelo asume que la función de riesgo para el individuo $i$ es:
 
-$$
-h_i(t \mid \mathbf{X}_i) = h_0(t) \exp(\boldsymbol{\beta}' \mathbf{X}_i)
-$$
+$$h_i(t \mid \mathbf{X}_i) = h_0(t) \exp(\boldsymbol{\beta}' \mathbf{X}_i)$$
 
 donde:
 
@@ -640,9 +592,7 @@ donde:
 
 Comparando dos individuos con covariables $\mathbf{X}_i$ y $\mathbf{X}_j$:
 
-$$
-\text{HR}_{ij}(t) = \frac{h_i(t \mid \mathbf{X}_i)}{h_j(t \mid \mathbf{X}_j)} = \frac{h_0(t) \exp(\boldsymbol{\beta}' \mathbf{X}_i)}{h_0(t) \exp(\boldsymbol{\beta}' \mathbf{X}_j)} = \exp[\boldsymbol{\beta}'(\mathbf{X}_i - \mathbf{X}_j)]
-$$
+$$\text{HR}_{ij}(t) = \frac{h_i(t \mid \mathbf{X}_i)}{h_j(t \mid \mathbf{X}_j)} = \frac{h_0(t) \exp(\boldsymbol{\beta}' \mathbf{X}_i)}{h_0(t) \exp(\boldsymbol{\beta}' \mathbf{X}_j)} = \exp[\boldsymbol{\beta}'(\mathbf{X}_i - \mathbf{X}_j)]$$
 
 **Propiedad clave**: La razón de riesgos es **constante en el tiempo** (asunción de riesgos proporcionales).
 
@@ -650,31 +600,29 @@ $$
 
 Para una covariable continua $X_k$:
 
-$$
-\text{HR} = \exp(\beta_k)
-$$
+$$\text{HR} = \exp(\beta_k)$$
 
-- $\beta_k > 0$ ($\text{HR} > 1$): Aumento del riesgo
-- $\beta_k < 0$ ($\text{HR} < 1$): Disminución del riesgo
-- $\beta_k = 0$ ($\text{HR} = 1$): Sin efecto
+Interpretación práctica: $\exp(\beta_k)$ compara el riesgo instantáneo (hazard) entre dos individuos que difieren en **una unidad** de $X_k$, manteniendo constantes las demás covariables.
 
-**Ejemplo**: Si $\beta_1 = 0.5$, entonces $\text{HR} = \exp(0.5) = 1.65$, indicando un aumento del 65% en el riesgo por cada unidad de aumento en $X_1$.
+- $\beta_k > 0$ ($\text{HR} > 1$): el hazard aumenta; en el lenguaje cotidiano, “si sube $X_k$, el evento tiende a ocurrir antes”.
+- $\beta_k < 0$ ($\text{HR} < 1$): el hazard disminuye; “si sube $X_k$, el evento tiende a ocurrir más tarde”.
+- $\beta_k = 0$ ($\text{HR} = 1$): no hay evidencia de efecto (en el modelo ajustado).
+
+**Ejemplo**: si $\beta_1 = 0.5$, entonces $\text{HR} = \exp(0.5) \approx 1.65$, indicando que el hazard instantáneo es aproximadamente 1.65 veces mayor por cada unidad adicional en $X_1$ (manteniendo el resto igual). Ojo: esto es “en el instante”, no una probabilidad final acumulada.
+
+**Consejo de rigor**: si el modelo falla en la asunción de riesgos proporcionales (por ejemplo, por no linealidades o efectos que cambian con el tiempo), la interpretación “HR constante” deja de ser fiable y conviene revisar diagnósticos (Schoenfeld, gráficos log-log, términos dependientes del tiempo o estratificación).
 
 ## Verosimilitud parcial
 
 La estimación de $\boldsymbol{\beta}$ se realiza mediante **verosimilitud parcial** [@cox1975]:
 
-$$
-L(\boldsymbol{\beta}) = \prod_{i: \delta_i = 1} \frac{\exp(\boldsymbol{\beta}' \mathbf{X}_i)}{\sum_{j \in R(t_i)} \exp(\boldsymbol{\beta}' \mathbf{X}_j)}
-$$
+$$L(\boldsymbol{\beta}) = \prod_{i: \delta_i = 1} \frac{\exp(\boldsymbol{\beta}' \mathbf{X}_i)}{\sum_{j \in R(t_i)} \exp(\boldsymbol{\beta}' \mathbf{X}_j)}$$
 
 donde $R(t_i)$ es el conjunto de riesgo en el tiempo $t_i$ (individuos que no han experimentado el evento ni han sido censurados antes de $t_i$).
 
 **Estimación de la función de riesgo basal**: una vez estimados los coeficientes $\hat{\boldsymbol{\beta}}$, la función de riesgo acumulada basal se estima mediante el **estimador de Breslow** [@breslow1974],
 
-$$
-\hat{H}_0(t) = \sum_{j: t_j \leq t} \frac{d_j}{\sum_{\ell \in R(t_j)} \exp(\hat{\boldsymbol{\beta}}' \mathbf{X}_\ell)},
-$$
+$$\hat{H}_0(t) = \sum_{j: t_j \leq t} \frac{d_j}{\sum_{\ell \in R(t_j)} \exp(\hat{\boldsymbol{\beta}}' \mathbf{X}_\ell)},$$
 
 que generaliza el estimador de Nelson-Aalen al caso con covariables. A partir de él se obtiene la supervivencia basal $\hat{S}_0(t) = \exp(-\hat{H}_0(t))$ y la supervivencia individual $\hat{S}(t \mid \mathbf{X}) = \hat{S}_0(t)^{\exp(\hat{\boldsymbol{\beta}}' \mathbf{X})}$.
 
@@ -707,13 +655,16 @@ Intervalos de confianza al 95% para HR:
 exp(confint(cox_fit))
 ```
 
+Cómo leer esta salida: un **intervalo de confianza (IC) al 95%** para una HR concreta cuantifica la incertidumbre. La regla práctica más usada es:
+
+- si el IC **no incluye 1**, hay evidencia (al 5%) de que el efecto no es nulo,
+- si el IC **incluye 1**, la información disponible no permite descartar un efecto nulo con ese nivel de evidencia.
+
 ## Estratificación
 
 Cuando la asunción de riesgos proporcionales no se cumple para una covariable, se puede **estratificar** por ella:
 
-$$
-h_{ij}(t \mid \mathbf{X}_{ij}) = h_{0j}(t) \exp(\boldsymbol{\beta}' \mathbf{X}_{ij})
-$$
+$$h_{ij}(t \mid \mathbf{X}_{ij}) = h_{0j}(t) \exp(\boldsymbol{\beta}' \mathbf{X}_{ij})$$
 
 donde $j$ indexa el estrato.
 
@@ -732,9 +683,7 @@ summary(cox_strat)
 
 Los **residuos de Schoenfeld** [@schoenfeld1982] permiten verificar la asunción de riesgos proporcionales. Para cada covariable $k$, se define un residuo en cada tiempo de evento $t_i$:
 
-$$
-r_{ik} = \delta_i \left[X_{ik} - \frac{\sum_{j \in R(t_i)} X_{jk} \exp(\boldsymbol{\beta}' \mathbf{X}_j)}{\sum_{j \in R(t_i)} \exp(\boldsymbol{\beta}' \mathbf{X}_j)}\right]
-$$
+$$r_{ik} = \delta_i \left[X_{ik} - \frac{\sum_{j \in R(t_i)} X_{jk} \exp(\boldsymbol{\beta}' \mathbf{X}_j)}{\sum_{j \in R(t_i)} \exp(\boldsymbol{\beta}' \mathbf{X}_j)}\right]$$
 
 El término entre corchetes es la diferencia entre el valor observado $X_{ik}$ y la **media ponderada** de $X_k$ entre los individuos aún en riesgo en $t_i$; por tanto, el residuo mide cuánto se desvía una covariable de lo que "se esperaría" si el riesgo fuera proporcional. Si la asunción se cumple, los residuos escalados deben ser independientes del tiempo, es decir, su gráfico contra $t$ debe tener pendiente cero (en la práctica, una banda de suavizado localmente horizontal). La función `cox.zph()` contrasta formalmente esta hipótesis para cada covariable y globalmente [@therneau2000].
 
@@ -751,7 +700,14 @@ par(mfrow = c(2, 2))
 plot(test_ph)
 ```
 
-**Interpretación**: Un p-valor < 0.05 sugiere violación de la asunción de riesgos proporcionales.
+**Interpretación**: Un p-valor \< 0.05 sugiere violación de la asunción de riesgos proporcionales.
+
+Lectura humana: esto significa que la “multiplicación del riesgo” asociada a esa covariable probablemente **cambia con el tiempo**. En ese caso, la interpretación simple de HR constante deja de ser defendible y conviene explorar soluciones como:
+
+- usar una covariable dependiente del tiempo,
+- estratificar,
+- o introducir no linealidades/splines,
+- o considerar modelos alternativos.
 
 #### Gráficos log-log
 
@@ -774,15 +730,13 @@ Si las líneas son paralelas, la asunción se cumple.
 
 Los **residuos de martingale** detectan la forma funcional de covariables continuas:
 
-$$
-M_i = \delta_i - \hat{H}_0(t_i) \exp(\boldsymbol{\beta}' \mathbf{X}_i)
-$$
+$$M_i = \delta_i - \hat{H}_0(t_i) \exp(\boldsymbol{\beta}' \mathbf{X}_i)$$
 
 es decir, el número de eventos observados ($\delta_i$, 0 o 1) menos el número de eventos *esperados* bajo el modelo. Toman valores en $(-\infty, 1]$, con media cero y están correlacionados entre sí. Su utilidad principal es diagnosticar la **forma funcional** de covariables continuas: al representarlos frente a la covariable $X_k$, la desviación sistemática de la horizontal indica que $X_k$ no entra linealmente en el modelo (p. ej., requiere una transformación o un *spline*). Estos residuos surgen de la formulación del modelo de Cox como **proceso de conteo** mediante la teoría de martingalas [@therneau2000; @andersen1982].
 
 ```{r martingala}
 #| label: fig-martingala
-#| fig-cap: "Residuos de martingale vs edad para detectar forma funcional"
+#| fig-cap: "Residuos de martingala vs edad para detectar forma funcional"
 
 mart_res <- residuals(cox_fit, type = "martingale")
 
@@ -795,13 +749,11 @@ abline(h = 0, lty = 2)
 
 ### Residuos de deviance
 
-Los **residuos de deviance** son transformaciones simétricas de los residuos de martingale:
+Los **residuos de deviance** son transformaciones simétricas de los residuos de martingala (la idea es “hacerlos comparables” en magnitud y mejorar la inspección visual). Su objetivo práctico es ayudar a detectar **observaciones influyentes** o patrones de mala adecuación del modelo: valores alejados de 0 suelen indicar que ese sujeto contribuye de forma inusual a la discrepancia entre observado y esperado.
 
-$$
-D_i = \text{sign}(M_i) \sqrt{-2[M_i + \delta_i \log(\delta_i - M_i)]}
-$$
+$$D_i = \text{sign}(M_i) \sqrt{-2[M_i + \delta_i \log(\delta_i - M_i)]}$$
 
-Útiles para detectar observaciones atípicas.
+Útiles para detectar observaciones atípicas. **Cómo leer la figura**: si los residuos de deviance muestran valores muy alejados de 0 (especialmente con signo consistente), suele indicar que ese individuo o subgrupo no está bien representado por la forma funcional y covariables asumidas en el modelo.
 
 ```{r desviacion}
 #| label: fig-desviacion
@@ -817,7 +769,9 @@ abline(h = c(-2, 0, 2), lty = c(2, 1, 2))
 
 ### Estadísticos de influencia
 
-**DFBETAs**: Miden el cambio en $\hat{\boldsymbol{\beta}}$ al eliminar la observación $i$.
+**DFBETAs**: miden el cambio en $\hat{\boldsymbol{\beta}}$ al eliminar la observación $i$.
+
+Interpretación de salida: en el gráfico, busca puntos con magnitud muy superior al resto. Si al quitar un sujeto (en el modelo ajustado) se mueven apreciablemente algunos coeficientes, ese sujeto es **influyente**: no necesariamente significa “malo”, pero sí que el resultado del modelo puede depender de información muy particular contenida en esas observaciones.
 
 ```{r dfbetas}
 #| label: fig-dfbetas
@@ -839,9 +793,7 @@ for (j in 1:min(4, ncol(dfb))) {
 
 Permite que las covariables cambien con el tiempo:
 
-$$
-h_i(t \mid \mathbf{X}_i(t)) = h_0(t) \exp(\boldsymbol{\beta}' \mathbf{X}_i(t))
-$$
+$$h_i(t \mid \mathbf{X}_i(t)) = h_0(t) \exp(\boldsymbol{\beta}' \mathbf{X}_i(t))$$
 
 ```{r td-covariates}
 # Ejemplo: efecto de tratamiento que cambia después de 6 meses
@@ -887,13 +839,13 @@ summary(cox_spline)
 
 Los **riesgos competitivos** ocurren cuando un sujeto puede experimentar uno de varios eventos mutuamente excluyentes (por ejemplo, morir por cáncer frente a morir por enfermedad cardiovascular). La ocurrencia de un evento **impide** observar los demás, lo que genera un tipo de censura *informativa* que no puede tratarse con los métodos estándar.
 
+Interpretación práctica: en vez de preguntar “¿cuándo sucede el evento de interés, sea lo que sea lo demás?”, ahora preguntamos “¿cuándo sucede *este* evento, sabiendo que pueden ocurrir otros primero?”. Por eso necesitamos métricas que contabilicen correctamente el impacto de los eventos competidores.
+
 ### Función de incidencia acumulada
 
 La **función de incidencia acumulada (CIF)** para el evento tipo $k$ es:
 
-$$
-F_k(t) = P(T \leq t, \text{tipo } = k) = \int_0^t S(u) h_k(u) \, du
-$$
+$$F_k(t) = P(T \leq t, \text{tipo } = k) = \int_0^t S(u) h_k(u) \, du$$
 
 donde $S(t)$ es la supervivencia global (probabilidad de no haber sufrido *ningún* evento) y $h_k(t)$ es el riesgo causa-específico (*cause-specific hazard*).
 
@@ -902,13 +854,15 @@ donde $S(t)$ es la supervivencia global (probabilidad de no haber sufrido *ning�
 **Distinción clave**: existen dos riesgos distintos que no deben confundirse [@fine1999; @gray1988]:
 
 - El **riesgo causa-específico** $h_k(t)$, que modela la tasa instantánea del evento $k$ entre los sujetos *aún libres de cualquier evento*. Es el análogo natural del hazard en ausencia de competencia.
-- El **riesgo de subdistribución** $h_k^*(t)$, que modela la tasa instantánea del evento $k$ entre los sujetos *que aún no han sufrido el evento $k$* (incluyendo a los que ya sufrieron otro evento, que permanecen en el denominador). Es la cantidad directamente ligada a la CIF mediante $F_k(t) = 1 - \exp(-\int_0^t h_k^*(u)\,du)$.
+- El **riesgo de subdistribución** $h_k^*(t)$, que modela la tasa instantánea del evento $k$ entre los sujetos *que aún no han sufrido el evento* $k$ (incluyendo a los que ya sufrieron otro evento, que permanecen en el denominador). Es la cantidad directamente ligada a la CIF mediante $F_k(t) = 1 - \exp(-\int_0^t h_k^*(u)\,du)$.
 
 En presencia de competencia, un mismo coeficiente estimado con el modelo causa-específico (Cox) y con el modelo de subdistribución (Fine-Gray) puede tener signo y magnitud **diferentes**, porque responden a preguntas distintas.
 
 ### Test de Gray
 
 El **test de Gray** [@gray1988] compara CIFs entre grupos considerando los eventos competitivos.
+
+Interpretación de salida: cuando el test sugiere diferencia entre grupos, significa que la probabilidad acumulada de experimentar el evento de interés (tipo $k$) a lo largo del tiempo difiere, **incluso teniendo en cuenta que puede ocurrir antes un evento competitivo**. Es decir, el resultado está directamente alineado con la pregunta clínica/predictiva sobre “incidencia del evento”.
 
 ```{r riesgos-competitivos}
 #| label: fig-cif
@@ -946,9 +900,9 @@ print(cif_fit)
 
 El **modelo de Fine-Gray** [@fine1999] modela directamente la CIF a través del riesgo de subdistribución:
 
-$$
-h_k^*(t \mid \mathbf{X}) = h_{0k}^*(t) \exp(\boldsymbol{\beta}_k' \mathbf{X})
-$$
+Interpretación práctica (muy ligada a la pregunta clínica): cuando la pregunta es “¿qué probabilidad acumulada tengo de observar el **evento de interés** tipo $k$ antes de un horizonte de tiempo $t$, aunque pueda ocurrir un competidor primero?”, Fine-Gray es el modelo más directamente alineado. Por eso, cuando miras \$ \exp(\beta)\$, lo que te está diciendo (en el lenguaje correcto para supervivencia competitiva) es cómo cambia la **incidencia acumulada** esperada del evento $k$.
+
+$$h_k^*(t \mid \mathbf{X}) = h_{0k}^*(t) \exp(\boldsymbol{\beta}_k' \mathbf{X})$$
 
 donde $h_k^*(t)$ es el riesgo de subdistribución (*subdistribution hazard*). A diferencia del modelo causa-específico de Cox, el modelo de Fine-Gray mantiene en el conjunto de riesgo a los sujetos que ya han sufrido un evento competitivo (ponderándolos de forma decreciente), de modo que $\exp(\beta)$ tiene una interpretación **directa sobre la incidencia acumulada**: un $\text{HR} > 1$ indica mayor probabilidad de sufrir el evento $k$ a lo largo del tiempo. Esta es la razón por la que es el modelo preferido cuando el objetivo es **predecir el riesgo absoluto** de un evento concreto, mientras que el modelo causa-específico se prefiere para estudiar la **etiología** del evento [@fine1999; @kleinbaum2012].
 
@@ -966,9 +920,9 @@ summary(fg_fit)
 
 Los **modelos de fragilidad** introducen heterogeneidad no observada mediante un efecto aleatorio:
 
-$$
-h_i(t \mid \mathbf{X}_i, Z_i) = Z_i h_0(t) \exp(\boldsymbol{\beta}' \mathbf{X}_i)
-$$
+Interpretación humana: imagina que hay “pacientes con distinta tendencia natural” al evento (por factores que no medimos). En vez de forzar una única tendencia media para todos, el modelo permite que cada grupo/individuo tenga un nivel latente de riesgo (la fragilidad). Esto suele mejorar la calibración y los errores estándar cuando hay dependencia entre observaciones.
+
+$$h_i(t \mid \mathbf{X}_i, Z_i) = Z_i h_0(t) \exp(\boldsymbol{\beta}' \mathbf{X}_i)$$
 
 donde $Z_i$ es la fragilidad (usualmente $Z_i \sim \text{Gamma}(\theta, \theta)$ con $E[Z_i] = 1$).
 
@@ -993,17 +947,15 @@ Para sujetos que pueden experimentar el evento múltiples veces (p. ej., hospita
 
 Modelamos el número de eventos $N_i(t)$ usando modelos de intensidad:
 
-$$
-\lambda_i(t \mid \mathbf{X}_i) = Y_i(t) h_0(t) \exp(\boldsymbol{\beta}' \mathbf{X}_i)
-$$
+$$\lambda_i(t \mid \mathbf{X}_i) = Y_i(t) h_0(t) \exp(\boldsymbol{\beta}' \mathbf{X}_i)$$
 
 donde $Y_i(t)$ indica si el sujeto $i$ está en riesgo en el tiempo $t$. Esta formulación de **procesos de conteo** es la base teórica general del modelo de Cox [@andersen1982], y permite representar tanto la censura por la derecha como los eventos recurrentes con datos en formato $(t_{\text{start}}, t_{\text{stop}}]$.
 
 ### Modelos para eventos recurrentes
 
-1. **Andersen-Gill (AG)**: Todos los eventos se tratan igualmente [@andersen1982]. Modelo de intensidad con un único efecto de covariable; asume independencia entre eventos del mismo sujeto y usa errores robustos (*sandwich*) por sujeto.
-2. **Prentice-Williams-Peterson (PWP)**: Estratifica por número de evento (el sujeto no puede sufrir el evento $k$ hasta no haber sufrido el $k-1$).
-3. **Wei-Lin-Weissfeld (WLW)**: Modelo marginal para cada evento.
+1.  **Andersen-Gill (AG)**: Todos los eventos se tratan igualmente [@andersen1982]. Modelo de intensidad con un único efecto de covariable; asume independencia entre eventos del mismo sujeto y usa errores robustos (*sandwich*) por sujeto.
+2.  **Prentice-Williams-Peterson (PWP)**: Estratifica por número de evento (el sujeto no puede sufrir el evento $k$ hasta no haber sufrido el $k-1$).
+3.  **Wei-Lin-Weissfeld (WLW)**: Modelo marginal para cada evento.
 
 La elección entre AG, PWP y WLW depende de si el interés está en el **tiempo total** de eventos (AG), en el **tiempo entre eventos consecutivos** (PWP) o en el **marginal por evento** (WLW) [@therneau2000; @kleinbaum2012].
 
@@ -1024,11 +976,13 @@ summary(ag_fit)
 
 ## Análisis de concordancia
 
-El **índice de concordancia (C-index)** mide la capacidad discriminativa del modelo:
+El **índice de concordancia (C-index)** mide la capacidad discriminativa del modelo: en términos sencillos, evalúa si los pacientes a los que el modelo asigna “peor pronóstico” tienden a experimentar el evento **antes** que los pacientes con pronóstico mejor.
 
-$$
-C = P(\hat{T}_i > \hat{T}_j \mid T_i > T_j)
-$$
+En un mundo ideal, el modelo clasificaría todas las parejas correctamente. En la práctica, los empates y la censura hacen que el valor esté entre 0 y 1.
+
+El **C-index** se estima con la fórmula habitual (aquí como probabilidad condicional):
+
+$$C = P(\hat{T}_i > \hat{T}_j \mid T_i > T_j)$$
 
 - $C = 0.5$: Sin capacidad discriminativa (aleatorio)
 - $C = 1$: Discriminación perfecta
@@ -1045,6 +999,14 @@ survConcordance(Surv(time, status) ~ predict(cox_fit), data = lung)
 ## Validación del modelo
 
 ### Validación cruzada
+
+Aquí la validación cruzada intenta responder una pregunta concreta: **¿se comporta el modelo de forma similar en datos no usados para ajustarlo?**
+
+**Cómo leer la salida (C-index medio y desviación estándar)**:
+
+- El **C-index medio (CV)** es una estimación del rendimiento esperado.
+- La **desviación estándar** te informa de la estabilidad: si es grande, el rendimiento depende mucho de qué pliegues toquen.
+- Si el modelo tiene buena discriminación (C-index alto) en todos los pliegues, es señal de que no es solo “casualidad” del ajuste.
 
 ```{r validacion-cruzada}
 # Validación cruzada 10-fold
@@ -1069,7 +1031,12 @@ cat("Desviación estándar:", sd(c_indices), "\n")
 
 ### Calibración
 
-La **calibración** evalúa si las probabilidades predichas coinciden con las frecuencias observadas.
+La **calibración** evalúa si las probabilidades predichas coinciden con lo que realmente ocurre. En supervivencia, no es solo “qué tan bien discrimina” (eso es C-index), sino si el **nivel absoluto de probabilidad** que asigna el modelo tiene sentido.
+
+**Cómo leer el gráfico de calibración** (de `rms::calibrate`):
+
+- Si la curva se aproxima a la diagonal (ideal), las probabilidades a ese horizonte temporal están bien calibradas.
+- Si aparece sistemáticamente por encima o por debajo, el modelo tiende a **sobreestimar** o **subestimar** el riesgo (o, equivalente, la supervivencia) en ese rango.
 
 ```{r calibracion}
 # Gráfico de calibración
@@ -1091,9 +1058,10 @@ plot(cal, main = "Gráfico de calibración")
 
 Para un nuevo paciente con covariables $\mathbf{X}_{\text{new}}$, la función de supervivencia predicha es:
 
-$$
-\hat{S}(t \mid \mathbf{X}_{\text{new}}) = \hat{S}_0(t)^{\exp(\hat{\boldsymbol{\beta}}' \mathbf{X}_{\text{new}})}
-$$
+Interpretación: esta curva predicha \$ \hat{S}(t\mid \mathbf{X}\_{\text{new}})\$ responde a la pregunta “¿cuánta supervivencia libre de evento espera el modelo para este perfil, a cada horizonte t?”.
+
+Rigor: recuerda que es una **curva condicional**: depende del conjunto de covariables observado, del modelo (aquí Cox) y de suposiciones (p.ej., riesgos proporcionales).
+$$\hat{S}(t \mid \mathbf{X}_{\text{new}}) = \hat{S}_0(t)^{\exp(\hat{\boldsymbol{\beta}}' \mathbf{X}_{\text{new}})}$$
 
 donde $\hat{S}_0(t)$ es la función de supervivencia basal estimada.
 
@@ -1129,6 +1097,14 @@ legend("topright",
 
 ## Probabilidades de supervivencia
 
+Después de ajustar Cox, la salida `summary(pred_surv, times = ...)` te da **probabilidades estimadas** de supervivencia para cada perfil, en los tiempos pedidos (aquí 1 y 2 años).
+
+**Cómo leer la salida**:
+
+- Para un perfil concreto (con covariables específicas), el valor en `surv` es \$ \hat{S}(t\mid \mathbf{X})\$, es decir, “probabilidad de que el paciente no haya tenido el evento antes de t”.
+- Si comparas perfiles, valores **más bajos** implican peor supervivencia esperada (evento más probable antes).
+- No es una probabilidad “de ocurrencia final” por sí sola: está condicionada al modelo, a las covariables y al horizonte temporal $t$.
+
 ```{r prob-supervivencia}
 # Probabilidad de sobrevivir 1 año (365 días)
 summary(pred_surv, times = 365)
@@ -1140,6 +1116,8 @@ summary(pred_surv, times = 730)
 ## Nomogramas
 
 Los **nomogramas** permiten cálculos gráficos de probabilidades de supervivencia.
+
+Interpretación práctica: un nomograma traduce los valores de covariables (p.ej., edad, ECOG) a una puntuación lineal (habitualmente el *linear predictor*), y a partir de ahí te ayuda a leer directamente $S(t)$ para horizontes clínicamente relevantes (p.ej., 1 y 2 años). En otras palabras, sirve como “puente” entre el modelo estadístico y una lectura clínica simple, siempre recordando que sigue siendo una predicción dependiente del modelo.
 
 ```{r nomograma}
 #| label: fig-nomograma
@@ -1205,9 +1183,7 @@ El tamaño muestral requerido depende del **número de eventos**, no del número
 
 **Regla general**: Se necesitan al menos 10 eventos por covariable para evitar sobreajuste.
 
-$$
-n_{\text{eventos}} \geq 10 \times p
-$$
+$$n_{\text{eventos}} \geq 10 \times p$$
 
 donde $p$ es el número de covariables.
 
@@ -1428,15 +1404,15 @@ print(test_ph_mama)
 
 # Conclusiones {#sec-conclusiones}
 
-El análisis de supervivencia proporciona herramientas estadísticas poderosas para analizar datos de tiempo hasta el evento en presencia de censura. Los puntos clave son:
+El análisis de supervivencia proporciona herramientas estadísticas poderosas para analizar datos de tiempo hasta el evento en presencia de censura. Sin embargo, la diferencia entre “un resultado bonito” y una conclusión sólida está en (i) entender qué información aporta la censura, (ii) comprobar que las asunciones del método son razonables y (iii) interpretar con rigor las métricas de salida (curvas, razones de riesgos, probabilidades, etc.) en el contexto del objetivo del estudio. En este tutorial, los puntos clave son:
 
-1. **Censura**: Requiere métodos especializados que no ignoran la información parcial
-2. **Kaplan-Meier**: Método no paramétrico para estimar funciones de supervivencia
-3. **Test de log-rank**: Prueba estándar para comparar curvas de supervivencia
-4. **Modelos paramétricos**: Útiles cuando se conoce la distribución subyacente
-5. **Modelo de Cox**: Modelo semiparamétrico más utilizado, flexible y robusto
-6. **Diagnóstico**: Verificación de asunciones es crucial (riesgos proporcionales, forma funcional)
-7. **Extensiones**: Riesgos competitivos, fragilidad y eventos recurrentes para situaciones más complejas
+1.  **Censura**: Requiere métodos especializados que no ignoran la información parcial
+2.  **Kaplan-Meier**: Método no paramétrico para estimar funciones de supervivencia
+3.  **Test de log-rank**: Prueba estándar para comparar curvas de supervivencia
+4.  **Modelos paramétricos**: Útiles cuando se conoce la distribución subyacente
+5.  **Modelo de Cox**: Modelo semiparamétrico más utilizado, flexible y robusto
+6.  **Diagnóstico**: Verificación de asunciones es crucial (riesgos proporcionales, forma funcional)
+7.  **Extensiones**: Riesgos competitivos, fragilidad y eventos recurrentes para situaciones más complejas
 
 La elección del método depende de:
 
@@ -1529,39 +1505,33 @@ summary(pred, times = 365)
 ## Distribuciones comunes
 
 | Distribución | $h(t)$ | $S(t)$ | Parámetros |
-|:-------------|:-------|:-------|:-----------|
+|:---|:---|:---|:---|
 | Exponencial | $\lambda$ | $\exp(-\lambda t)$ | $\lambda > 0$ |
 | Weibull | $\lambda \gamma t^{\gamma-1}$ | $\exp(-\lambda t^\gamma)$ | $\lambda, \gamma > 0$ |
 | Log-normal | $\frac{\phi\left(\frac{\log t - \mu}{\sigma}\right)}{\sigma t \left[1 - \Phi\left(\frac{\log t - \mu}{\sigma}\right)\right]}$ | $1 - \Phi\left(\frac{\log t - \mu}{\sigma}\right)$ | $\mu \in \mathbb{R}, \sigma > 0$ |
 | Log-logística | $\frac{\lambda \gamma t^{\gamma-1}}{1 + \lambda t^\gamma}$ | $\frac{1}{1 + \lambda t^\gamma}$ | $\lambda, \gamma > 0$ |
 
-: Funciones de riesgo y supervivencia para distribuciones comunes {#tbl-distribuciones}
+: Funciones de riesgo y supervivencia para distribuciones comunes
 
 ## Tests estadísticos
 
 ### Test de log-rank
 
-$$
-\chi^2 = \frac{(O_1 - E_1)^2}{E_1} + \frac{(O_2 - E_2)^2}{E_2} \sim \chi^2_1
-$$
+$$\chi^2 = \frac{(O_1 - E_1)^2}{E_1} + \frac{(O_2 - E_2)^2}{E_2} \sim \chi^2_1$$
 
 ### Test de Wald
 
 Para $H_0: \beta_j = 0$:
 
-$$
-z = \frac{\hat{\beta}_j}{\widehat{\text{SE}}(\hat{\beta}_j)} \sim N(0, 1)
-$$
+$$z = \frac{\hat{\beta}_j}{\widehat{\text{SE}}(\hat{\beta}_j)} \sim N(0, 1)$$
 
 ### Test de razón de verosimilitud
 
-$$
--2 \log \Lambda = -2[\log L(\text{modelo restringido}) - \log L(\text{modelo completo})] \sim \chi^2_q
-$$
+$$-2 \log \Lambda = -2[\log L(\text{modelo restringido}) - \log L(\text{modelo completo})] \sim \chi^2_q$$
 
 donde $q$ es la diferencia en número de parámetros.
 
----
+------------------------------------------------------------------------
 
 **Información de la sesión:**
 
@@ -1569,6 +1539,4 @@ donde $q$ es la diferencia en número de parámetros.
 sessionInfo()
 ```
 
----
-
-
+------------------------------------------------------------------------
