@@ -36,13 +36,15 @@ jobs:
       - name: Setup Quarto
         uses: quarto-dev/quarto-actions/setup@v2
 
-      - name: Render Quarto Project
-        run: quarto render
+      - name: Render Quarto Tutorial
+        run: |
+          cd SURVIVAL/Tutorial-Supervivencia-ES
+          quarto render
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: _site
+          path: SURVIVAL/Tutorial-Supervivencia-ES/_site
 
   deploy:
     environment:
