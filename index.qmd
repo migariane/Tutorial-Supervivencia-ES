@@ -325,12 +325,15 @@ $$
 #| label: fig-nelson-aalen
 #| fig-cap: "Comparación entre estimadores de Kaplan-Meier y Nelson-Aalen"
 
-# Estimador de Nelson-Aalen (usando acumulado de hazard)
+# Estimador de Kaplan-Meier (muestra completa, sin estratificar)
+km_all <- survfit(Surv(time, status) ~ 1, data = aml)
+
+# Estimador de Nelson-Aalen (Fleming-Harrington)
 na_fit <- survfit(Surv(time, status) ~ 1, data = aml, type = "fh")
 
 # Comparación
 par(mfrow = c(1, 2))
-plot(km_fit, conf.int = FALSE, main = "Kaplan-Meier", xlab = "Tiempo", ylab = "S(t)")
+plot(km_all, conf.int = FALSE, main = "Kaplan-Meier", xlab = "Tiempo", ylab = "S(t)")
 plot(na_fit, conf.int = FALSE, main = "Nelson-Aalen", xlab = "Tiempo", ylab = "S(t)")
 ```
 
@@ -376,10 +379,10 @@ donde $\delta_i$ es el indicador de evento e $y_i$ el tiempo observado.
 exp_fit <- survreg(Surv(time, status) ~ x, data = aml, dist = "exponential")
 summary(exp_fit)
 
-# Extraer lambda
-lambda <- 1 / exp(coef(exp_fit)[1])
-cat("Lambda estimado:", lambda, "\n")
-cat("Tiempo medio:", 1/lambda, "\n")
+# Extraer lambda (riesgo basal, para el grupo de referencia x=0)
+lambda_exp <- 1 / exp(coef(exp_fit)[1])
+cat("Lambda estimado:", lambda_exp, "\n")
+cat("Tiempo medio:", 1/lambda_exp, "\n")
 ```
 
 ## Distribución de Weibull
@@ -428,19 +431,20 @@ weib_fit <- survreg(Surv(time, status) ~ x, data = aml, dist = "weibull")
 summary(weib_fit)
 
 # Extraer parámetros
-gamma <- 1 / weib_fit$scale
-lambda <- exp(-coef(weib_fit)[1] / weib_fit$scale)
+gamma_weib <- 1 / weib_fit$scale
+lambda_weib <- exp(-coef(weib_fit)[1] / weib_fit$scale)
 
-cat("Gamma (forma):", gamma, "\n")
-cat("Lambda (escala):", lambda, "\n")
+cat("Gamma (forma):", gamma_weib, "\n")
+cat("Lambda (escala):", lambda_weib, "\n")
 
 # Verificación gráfica: log-log plot
 # Si Weibull es apropiada, debe ser lineal
 km_all <- survfit(Surv(time, status) ~ 1, data = aml)
-plot(log(km_all$time), log(-log(km_all$surv)), 
+ok <- km_all$surv > 0 & km_all$surv < 1
+plot(log(km_all$time[ok]), log(-log(km_all$surv[ok])), 
      xlab = "log(tiempo)", ylab = "log(-log(S(t)))",
      main = "Diagnóstico Weibull: gráfico log-log")
-abline(lm(log(-log(km_all$surv)) ~ log(km_all$time)), col = "red")
+abline(lm(log(-log(km_all$surv[ok])) ~ log(km_all$time[ok])), col = "red")
 ```
 
 ## Distribución log-normal
@@ -540,39 +544,32 @@ times_grid <- seq(min(aml$time), max(aml$time), length.out = 100)
 # KM para comparación
 km_ref <- survfit(Surv(time, status) ~ 1, data = aml)
 
-# Predicciones de supervivencia (aprox.)
-# Nota: para exponencial y Weibull usamos las expresiones cerradas según la parametrización asumida previamente.
-S_exp <- exp(-lambda * times_grid)
-S_weib <- exp(-lambda * times_grid^(gamma))
+# Curvas paramétricas (grupo de referencia x=0)
+# Exponencial: S(t) = exp(-lambda_exp * t)
+S_exp <- exp(-lambda_exp * times_grid)
+
+# Weibull: S(t) = exp(-lambda_weib * t^gamma_weib)
+S_weib <- exp(-lambda_weib * times_grid^(gamma_weib))
+
+# Log-normal: S(t) = 1 - Phi((log t - mu)/sigma)
+mu_ln  <- coef(lognorm_fit)[1]
+sig_ln <- lognorm_fit$scale
+S_logn <- 1 - pnorm((log(times_grid) - mu_ln) / sig_ln)
+
+# Log-logística: S(t) = 1 / (1 + lambda * t^gamma)
+mu_ll  <- coef(loglog_fit)[1]
+sig_ll <- loglog_fit$scale
+g_ll   <- 1 / sig_ll
+l_ll   <- exp(-mu_ll / sig_ll)
+S_logl <- 1 / (1 + l_ll * times_grid^g_ll)
 
 # Curvas
 plot(km_ref, conf.int = FALSE, xlab = "Tiempo", ylab = "S(t)",
      main = "Comparación de modelos", xlim = range(times_grid))
-lines(times_grid, S_exp, col = "red", lwd = 2)
-lines(times_grid, S_weib, col = "blue", lwd = 2)
-
-# Log-normal y log-logística: estimamos curvas de supervivencia mediante cuantiles
-# (usando survreg con type='quantile' que tu versión sí soporta)
-# Para survreg, p es la probabilidad de la distribución acumulada, así que S(t)=1-F(t)
-# En esta implementación usamos p = 1 - S(t) a través de invocación compatibilizada con 'quantile'.
-# Nota: la parametrización exacta puede requerir ajuste fino; si el render produce NaN, lo dejamos excluido.
-
-# Curvas log-normal y log-logística (robustez: fallback si hay NA)
-S_logn <- try(as.numeric(predict(lognorm_fit, newdata = data.frame(x = 1), type = "quantile", p = 1 - times_grid)), silent = TRUE)
-S_logl <- try(as.numeric(predict(loglog_fit, newdata = data.frame(x = 1), type = "quantile", p = 1 - times_grid)), silent = TRUE)
-
-if (!inherits(S_logn, "try-error") && all(is.finite(S_logn))) {
-  lines(times_grid, S_logn, col = "green", lwd = 2)
-}
-if (!inherits(S_logl, "try-error") && all(is.finite(S_logl))) {
-  lines(times_grid, S_logl, col = "purple", lwd = 2)
-}
-
-legend("topright",
-       legend = c("Kaplan-Meier", "Exponencial", "Weibull", "Log-normal", "Log-logística"),
-       col = c("black", "red", "blue", "green", "purple"),
-       lty = 1,
-       lwd = c(1, 2, 2, 2, 2))
+lines(times_grid, S_exp,  col = "red",    lwd = 2)
+lines(times_grid, S_weib, col = "blue",   lwd = 2)
+lines(times_grid, S_logn, col = "green",  lwd = 2)
+lines(times_grid, S_logl, col = "purple", lwd = 2)
 
 legend("topright",
        legend = c("Kaplan-Meier", "Exponencial", "Weibull", "Log-normal", "Log-logística"),
@@ -723,9 +720,9 @@ legend("topleft", legend = c("Hombre", "Mujer"), col = 1:2, lty = 1)
 
 Si las líneas son paralelas, la asunción se cumple.
 
-### Residuos de martingala
+### Residuos de martingale
 
-Los **residuos de martingala** detectan la forma funcional de covariables continuas:
+Los **residuos de martingale** detectan la forma funcional de covariables continuas:
 
 $$
 M_i = \delta_i - \hat{H}_0(t_i) \exp(\boldsymbol{\beta}' \mathbf{X}_i)
@@ -733,20 +730,20 @@ $$
 
 ```{r martingala}
 #| label: fig-martingala
-#| fig-cap: "Residuos de martingala vs edad para detectar forma funcional"
+#| fig-cap: "Residuos de martingale vs edad para detectar forma funcional"
 
 mart_res <- residuals(cox_fit, type = "martingale")
 
 plot(lung$age, mart_res, 
-     xlab = "Edad", ylab = "Residuos de martingala",
+     xlab = "Edad", ylab = "Residuos de martingale",
      main = "Verificación de forma funcional")
 lines(lowess(lung$age, mart_res), col = "red", lwd = 2)
 abline(h = 0, lty = 2)
 ```
 
-### Residuos de desviación
+### Residuos de deviance
 
-Los **residuos de desviación** son transformaciones simétricas de los residuos de martingala:
+Los **residuos de deviance** son transformaciones simétricas de los residuos de martingale:
 
 $$
 D_i = \text{sign}(M_i) \sqrt{-2[M_i + \delta_i \log(\delta_i - M_i)]}
@@ -756,12 +753,12 @@ $$
 
 ```{r desviacion}
 #| label: fig-desviacion
-#| fig-cap: "Residuos de desviación para detectar observaciones atípicas"
+#| fig-cap: "Residuos de deviance para detectar observaciones atípicas"
 
 dev_res <- residuals(cox_fit, type = "deviance")
 
 plot(dev_res, 
-     xlab = "Índice", ylab = "Residuos de desviación",
+     xlab = "Índice", ylab = "Residuos de deviance",
      main = "Detección de observaciones atípicas")
 abline(h = c(-2, 0, 2), lty = c(2, 1, 2))
 ```
@@ -846,7 +843,7 @@ $$
 F_k(t) = P(T \leq t, \text{tipo } = k) = \int_0^t S(u) h_k(u) \, du
 $$
 
-donde $S(t)$ es la supervivencia global y $h_k(t)$ es la causa-específica hazard.
+donde $S(t)$ es la supervivencia global y $h_k(t)$ es el riesgo causa-específico (*cause-specific hazard*).
 
 **Propiedad**: $\sum_{k=1}^K F_k(\infty) = 1$ si todos eventualmente experimentan algún evento.
 
@@ -894,13 +891,13 @@ $$
 h_k^*(t \mid \mathbf{X}) = h_{0k}^*(t) \exp(\boldsymbol{\beta}_k' \mathbf{X})
 $$
 
-donde $h_k^*(t)$ es el **subdistribution hazard**.
+donde $h_k^*(t)$ es el riesgo de subdistribución (*subdistribution hazard*).
 
 ```{r fine-gray}
 # Modelo de Fine-Gray
 fg_fit <- crr(ftime = datos_cr$tiempo,
               fstatus = datos_cr$evento,
-              cov1 = datos_cr$grupo,
+              cov1 = matrix(datos_cr$grupo, ncol = 1),
               failcode = 1)
 
 summary(fg_fit)
@@ -1083,49 +1080,58 @@ Los **nomogramas** permiten cálculos gráficos de probabilidades de supervivenc
 
 ```{r nomograma}
 #| label: fig-nomograma
-#| fig-cap: "Predicción de supervivencia para diferentes perfiles de pacientes"
+#| fig-cap: "Nomograma para predecir la supervivencia a 1 y 2 años"
 
 library(rms)
 
-dd <- datadist(lung)
+# Copia local con sexo como factor (no modificamos el data.frame global `lung`)
+lung_nom <- transform(lung, sex = factor(sex))
+
+dd <- datadist(lung_nom)
 options(datadist = "dd")
-
-# Asegurar tipos consistentes con el modelo coxph/cph
-lung$sex <- factor(lung$sex)
-
-definir_sex_levels <- levels(lung$sex)
 
 # Modelo usando rms
 cox_nom <- cph(Surv(time, status) ~ age + sex + ph.ecog,
-               data = lung, x = TRUE, y = TRUE, surv = TRUE, time.inc = 365)
+               data = lung_nom, x = TRUE, y = TRUE, surv = TRUE, time.inc = 365)
 
-# Crear perfiles de pacientes para predicción
+# Funciones de supervivencia a 1 y 2 años
+Sfun <- Survival(cox_nom)
+
+# Nomograma
+nom <- nomogram(
+  cox_nom,
+  fun = list(
+    function(lp) Sfun(365, lp),
+    function(lp) Sfun(730, lp)
+  ),
+  funlabel = c("S(1 año)", "S(2 años)")
+)
+plot(nom)
+```
+
+```{r nomograma-tabla}
+#| tbl-cap: "Probabilidades de supervivencia predichas según edad del paciente"
+
+# Perfiles de pacientes para predicción
 perfiles_nom <- data.frame(
   age = c(40, 50, 60, 70, 80),
-  sex = factor(rep(1, 5), levels = definir_sex_levels),
+  sex = factor(rep(1, 5), levels = levels(lung_nom$sex)),
   ph.ecog = rep(1, 5)
 )
 
-# Calcular predicciones de supervivencia a 1 año y 2 años
 survest_1yr <- survest(cox_nom, newdata = perfiles_nom, times = 365)
 survest_2yr <- survest(cox_nom, newdata = perfiles_nom, times = 730)
 
-# Normalizar salidas (robustez si rms devuelve listas/estructuras)
-vec_1yr <- as.numeric(survest_1yr$surv)
-vec_2yr <- as.numeric(survest_2yr$surv)
-
-# Crear tabla de predicciones
 pred_table <- data.frame(
   Edad = perfiles_nom$age,
   Sexo = "Masculino",
   ECOG = perfiles_nom$ph.ecog,
-  Supervivencia_1_año = round(vec_1yr, 3),
-  Supervivencia_2_años = round(vec_2yr, 3)
+  `1 año` = round(as.numeric(survest_1yr$surv), 3),
+  `2 años` = round(as.numeric(survest_2yr$surv), 3)
 )
 
 print(kable(pred_table,
-      caption = "Probabilidades de supervivencia predichas según edad del paciente",
-      col.names = c("Edad", "Sexo", "ECOG", "1 año", "2 años")))
+      caption = "Probabilidades de supervivencia predichas según edad del paciente"))
 ```
 
 # Consideraciones prácticas {#sec-practicas}
@@ -1229,7 +1235,7 @@ crear_tabla <- function(modelo) {
 
 tabla <- crear_tabla(cox_fit)
 kable(tabla, digits = 3, 
-      caption = "Resultados del modelo de Cox: Hazard Ratios e intervalos de confianza al 95%")
+      caption = "Resultados del modelo de Cox: razones de riesgos (Hazard Ratios) e intervalos de confianza al 95%")
 ```
 
 ### Gráfico Forest Plot
@@ -1258,7 +1264,7 @@ forestplot(tabletext,
            lower = c(NA, ci[, 1]),
            upper = c(NA, ci[, 2]),
            xlog = TRUE,
-           xlab = "Hazard Ratio",
+           xlab = "Razón de riesgos",
            col = fpColors(box = "royalblue", line = "darkblue"))
 ```
 
