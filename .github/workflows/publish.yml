@@ -36,6 +36,12 @@ jobs:
       - name: Setup Quarto
         uses: quarto-dev/quarto-actions/setup@v2
 
+      - name: Debug paths
+        run: |
+          pwd
+          ls -la
+          find . -maxdepth 5 -name index.qmd
+
       - name: Render Quarto Tutorial
         run: |
           cd SURVIVAL/Tutorial-Supervivencia-ES
