@@ -36,27 +36,17 @@ jobs:
       - name: Setup Quarto
         uses: quarto-dev/quarto-actions/setup@v2
 
-      - name: Locate tutorial index.qmd
+      - name: Render Quarto Tutorial
         run: |
-          INDEX_PATH="$(find . -maxdepth 8 -name index.qmd | grep 'SURVIVAL/Tutorial-Supervivencia-ES' | head -n 1)"
-          echo "INDEX_PATH=$INDEX_PATH"
-          if [ -z "$INDEX_PATH" ]; then
-            echo "Could not find tutorial index.qmd under SURVIVAL/Tutorial-Supervivencia-ES"
-            exit 1
-          fi
-          TUTORIAL_DIR="$(dirname "$INDEX_PATH")"
-          echo "TUTORIAL_DIR=$TUTORIAL_DIR"
-          echo "TUTORIAL_DIR=$TUTORIAL_DIR" >> $GITHUB_ENV
-
-      - name: Render tutorial
-        run: |
-          cd "$TUTORIAL_DIR"
+          echo "Repo root: $(pwd)"
+          echo "Looking for index.qmd..."
+          find . -maxdepth 2 -name index.qmd
           quarto render
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ${{ env.TUTORIAL_DIR }}/_site
+          path: _site
 
   deploy:
     environment:
