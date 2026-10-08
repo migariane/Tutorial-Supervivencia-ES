@@ -239,6 +239,8 @@ ggsurvplot(
 )
 ```
 
+**Cómo leer la salida de `summary(km_fit)`**: R imprime, para cada grupo, una tabla por tiempos de evento con las columnas `time`, `n.risk`, `n.event`, `survival`, `std.err` y los límites del IC95%. Conviene fijarse en tres detalles: (1) `survival` solo *cae* en los tiempos con `n.event > 0` (las censuras no producen saltos); (2) `n.risk` desciende también por las censuras, no solo por los eventos; y (3) el error estándar crece hacia el final del seguimiento porque cada vez quedan menos personas en riesgo, de modo que el IC se abre más cuando queda poca gente.
+
 ### Tiempo de supervivencia mediano
 
 El **tiempo de supervivencia mediano** es el tiempo $t_{0.5}$ tal que:
@@ -249,6 +251,8 @@ $$\hat{S}(t_{0.5}) = 0.5$$
 # Calcular medianas
 print(km_fit, print.rmean = TRUE)
 ```
+
+**Cómo leer esta salida**: la tabla muestra, por grupo, el número de sujetos (`n`), de eventos (`events`), la **mediana** de supervivencia y su IC95%. La mediana es el tiempo en que $\hat S(t)$ cruza 0.5. Cuando la curva nunca llega a 0.5 dentro del seguimiento, R devuelve `NA`: no es un error, sino una señal de que la supervivencia es alta y la mediana no es estimable con esos datos. Por eso también se reporta la **media restringida** (`*rmean`), que es el área bajo la curva hasta un límite de tiempo y puede estimarse aunque la mediana no exista.
 
 ## Comparación de curvas de supervivencia
 
@@ -290,6 +294,8 @@ que se distinguen por el peso $w_j$ asignado a cada tiempo $t_j$:
 survdiff(Surv(time, status) ~ x, data = aml)
 ```
 
+**Cómo leer `survdiff`**: la salida da `N` (sujetos por grupo), `Observed` (eventos observados), `Expected` (eventos que cabría esperar bajo $H_0$ si los riesgos fueran iguales), las contribuciones $(O-E)^2/E$ y $(O-E)^2/V$, y al final `Chisq` con sus grados de libertad y el p-valor. La clave está en comparar observados frente a esperados: si un grupo acumula muchos más eventos de los esperados, el estadístico crece y el p-valor baja. Un p-valor pequeño (habitualmente < 0.05) nos lleva a rechazar la igualdad de curvas.
+
 ### Test de Wilcoxon-Breslow-Gehan
 
 Variante que da más peso a tiempos tempranos [@peto1972]:
@@ -300,6 +306,8 @@ $$W = \sum_{k=1}^K \sum_j n_j (O_{kj} - E_{kj})$$
 # Test de Wilcoxon
 survdiff(Surv(time, status) ~ x, data = aml, rho = 1)
 ```
+
+**Nota sobre la lectura**: el formato es idéntico al del log-rank, pero `rho = 1` pondera más los tiempos tempranos (los eventos que ocurren pronto pesan más). Si este test da evidencia distinta a la del log-rank, suele indicar que la diferencia entre grupos se concentra al principio del seguimiento y se diluye después.
 
 ### Test de Tarone-Ware
 
@@ -341,7 +349,14 @@ Todos los modelos ajustados con `survreg()` en R pertenecen a la clase de **mode
 
 $$\log T_i = \mu + \boldsymbol{\beta}' \mathbf{X}_i + \sigma W_i$$
 
-donde $W_i$ es un error con distribución fija (normal, valor extremo, logística, etc.) y $\sigma$ es un parámetro de escala. La interpretación del coeficiente $\beta$ en un modelo AFT es **directa**: $\exp(-\beta_k)$ es el factor por el que se *acelera* (o *decelera*) el tiempo hasta el evento por cada unidad de aumento en $X_k$. Por ejemplo, $\exp(-\beta)=2$ implica que los tiempos se duplican. Esta interpretación contrasta con la del modelo de Cox, donde $\exp(\beta)$ actúa sobre el riesgo y no sobre el tiempo [@kleinbaum2012; @hosmer2008].
+donde $W_i$ es un error con distribución fija (normal, valor extremo, logística, etc.) y $\sigma$ es un parámetro de escala.
+
+**Interpretación en escala de tiempo (AFT frente a HR)**: en `survreg`, aumentar $X_k$ en una unidad desplaza $\log T$ en $\beta_k$, es decir, multiplica el tiempo hasta el evento por $\exp(\beta_k)$. Por tanto:
+
+- $\beta_k > 0$ (es decir, $\exp(\beta_k) > 1$) → tiempos **más largos**, el evento tiende a ocurrir más tarde.
+- $\beta_k < 0$ ($\exp(\beta_k) < 1$) → tiempos **más cortos**, el evento tiende a ocurrir antes.
+
+Este es el contraste esencial con el modelo de Cox: allí $\exp(\beta_k)$ es una **razón de riesgos (HR)** que multiplica el *hazard* (la tasa instantánea de riesgo), mientras que aquí $\exp(\beta_k)$ multiplica el *tiempo*. Son escalas distintas: AFT actúa sobre el tiempo, Cox actúa sobre el riesgo [@kleinbaum2012; @hosmer2008].
 
 ## Distribución exponencial
 
@@ -380,6 +395,8 @@ lambda_exp <- 1 / exp(coef(exp_fit)[1])
 cat("Lambda estimado:", lambda_exp, "\n")
 cat("Tiempo medio:", 1/lambda_exp, "\n")
 ```
+
+**Cómo leer la salida de `summary(exp_fit)`**: `survreg` trabaja en escala log-tiempo, de modo que los `Value` son coeficientes AFT. El `(Intercept)` es $\log$ de la escala del tiempo y, para la exponencial, $\lambda = 1/\exp(\text{intercept})$ es el riesgo constante. Las columnas `z` y `p` testean si cada coeficiente es distinto de cero. Fíjate en que la exponencial no estima `Log(scale)` (queda fijo), porque asume $\gamma = 1$. El `Tiempo medio` impreso es $1/\lambda$: el tiempo medio esperado hasta el evento bajo riesgo constante.
 
 ## Distribución de Weibull
 
@@ -436,6 +453,8 @@ plot(log(km_all$time[ok]), log(-log(km_all$surv[ok])),
      main = "Diagnóstico Weibull: gráfico log-log")
 abline(lm(log(-log(km_all$surv[ok])) ~ log(km_all$time[ok])), col = "red")
 ```
+
+**Cómo leer la salida de Weibull**: además de los coeficientes AFT (escala log-tiempo), ahora aparece `Log(scale)` y `Scale`. El parámetro de forma es $\gamma = 1/\text{Scale}$ (aquí impreso como `Gamma (forma)`). Si $\gamma > 1$ el riesgo crece con el tiempo; si $\gamma < 1$ decrece; si $\gamma \approx 1$ la Weibull se reduce a la exponencial. El gráfico log-log de abajo es un diagnóstico: si los puntos se alinean en una recta, la Weibull es razonable; una curvatura clara sugiere probar otras distribuciones.
 
 ## Distribución log-normal
 
@@ -513,6 +532,8 @@ comparacion <- data.frame(
 
 kable(comparacion, digits = 2, caption = "Comparación de modelos paramétricos")
 ```
+
+**Cómo leer la tabla AIC/BIC**: los tres criterios (AIC, BIC y log-verosimilitud) sirven para comparar modelos, anidados o no, pero no son medidas absolutas de bondad. El modelo con **menor** AIC (y menor BIC) es el que mejor equilibra ajuste y complejidad. BIC penaliza más los parámetros extra, así que tiende a elegir modelos más parsimoniosos. La regla práctica: si dos modelos difieren en AIC en más de 2–4 puntos, la diferencia se considera relevante; diferencias menores son un "empate" y conviene quedarse con el más simple.
 
 ### Gráfico comparativo
 
@@ -646,6 +667,8 @@ cox_fit <- coxph(Surv(time, status) ~ age + sex + ph.ecog + ph.karno +
 summary(cox_fit)
 ```
 
+**Cómo leer `summary(cox_fit)`**: la tabla principal tiene `coef` (el log-HR), `exp(coef)` (el **HR**), `se(coef)`, `z` y `Pr(>|z|)` (p-valor del test de Wald). Interpreta cada fila así: `exp(coef) > 1` sube el riesgo, `< 1` lo baja; un p-valor pequeño indica evidencia contra "sin efecto". Debajo, `Concordance` es el C-index (≈ 0.65 aquí), y las tres líneas de test (razón de verosimilitud, Wald y score/log-rank) contrastan globalmente que *todos* los coeficientes sean cero. Al final, `n` y `number of events` recuerdan que la potencia depende de los eventos observados, no solo del tamaño muestral.
+
 ### Intervalos de confianza
 
 Intervalos de confianza al 95% para HR:
@@ -674,6 +697,8 @@ cox_strat <- coxph(Surv(time, status) ~ age + strata(sex) + ph.ecog,
                    data = lung)
 summary(cox_strat)
 ```
+
+**Cómo leer el modelo estratificado**: al usar `strata(sex)`, R ya no estima un HR para el sexo (esa covariable "desaparece" de la tabla), porque cada sexo tiene su propia función de riesgo basal $h_{0j}(t)$. Esto es lo correcto cuando el sexo viola riesgos proporcionales: así no forzamos un HR constante que no existe, a costa de no poder resumir el efecto del sexo en una sola cifra.
 
 ## Diagnóstico del modelo
 
@@ -736,7 +761,7 @@ es decir, el número de eventos observados ($\delta_i$, 0 o 1) menos el número 
 
 ```{r martingala}
 #| label: fig-martingala
-#| fig-cap: "Residuos de martingala vs edad para detectar forma funcional"
+#| fig-cap: "Residuos de martingale vs edad para detectar forma funcional"
 
 mart_res <- residuals(cox_fit, type = "martingale")
 
@@ -749,7 +774,7 @@ abline(h = 0, lty = 2)
 
 ### Residuos de deviance
 
-Los **residuos de deviance** son transformaciones simétricas de los residuos de martingala (la idea es “hacerlos comparables” en magnitud y mejorar la inspección visual). Su objetivo práctico es ayudar a detectar **observaciones influyentes** o patrones de mala adecuación del modelo: valores alejados de 0 suelen indicar que ese sujeto contribuye de forma inusual a la discrepancia entre observado y esperado.
+Los **residuos de deviance** son transformaciones simétricas de los residuos de martingale (la idea es “hacerlos comparables” en magnitud y mejorar la inspección visual). Su objetivo práctico es ayudar a detectar **observaciones influyentes** o patrones de mala adecuación del modelo: valores alejados de 0 suelen indicar que ese sujeto contribuye de forma inusual a la discrepancia entre observado y esperado.
 
 $$D_i = \text{sign}(M_i) \sqrt{-2[M_i + \delta_i \log(\delta_i - M_i)]}$$
 
@@ -916,6 +941,8 @@ fg_fit <- crr(ftime = datos_cr$tiempo,
 summary(fg_fit)
 ```
 
+**Cómo leer la salida de `crr`**: `coef` es el efecto sobre el riesgo de subdistribución (log-HR de Fine-Gray), `exp(coef)` su HR, y `se`/`z`/`p-value` el error estándar y el test de Wald. Un `exp(coef) > 1` indica que el grupo (o covariable) se asocia con mayor **incidencia acumulada** del evento tipo 1. Recuerda que este HR no es el mismo que el del Cox causa-específico: aquí responde a la pregunta predictiva sobre la CIF.
+
 ## Modelos de fragilidad {#sec-fragilidad}
 
 Los **modelos de fragilidad** introducen heterogeneidad no observada mediante un efecto aleatorio:
@@ -938,6 +965,8 @@ frailty_fit <- coxph(Surv(time, status) ~ rx + frailty(litter),
                      data = rats)
 summary(frailty_fit)
 ```
+
+**Cómo leer la salida**: además del coeficiente de `rx`, verás la varianza estimada de la fragilidad (el término `frailty(litter)` con su propia sección). Si esa varianza es claramente mayor que cero, hay heterogeneidad entre camadas (litters) que el efecto fijo no explica; si fuera despreciable, la fragilidad no aporta y bastaría un Cox ordinario.
 
 ## Eventos recurrentes
 
@@ -974,6 +1003,8 @@ ag_fit <- coxph(Surv(tiempo, evento) ~ x1 + cluster(id),
 summary(ag_fit)
 ```
 
+**Cómo leer la salida**: el modelo Andersen-Gill ajusta todos los intervalos como si fueran independientes, pero `cluster(id)` corrige los errores estándar (robustos, tipo *sandwich*) por la correlación dentro del mismo sujeto. Los `coef` se interpretan igual que en Cox (log-HR), pero ahora describen el efecto sobre la **tasa de recurrencia** (intensidad), no sobre un único evento.
+
 ## Análisis de concordancia
 
 El **índice de concordancia (C-index)** mide la capacidad discriminativa del modelo: en términos sencillos, evalúa si los pacientes a los que el modelo asigna “peor pronóstico” tienden a experimentar el evento **antes** que los pacientes con pronóstico mejor.
@@ -995,6 +1026,8 @@ print(c_index)
 # Usando paquete survival
 survConcordance(Surv(time, status) ~ predict(cox_fit), data = lung)
 ```
+
+**Cómo leer la salida**: `concordance` da el valor `C` y su error estándar. Un `C = 0.5` equivale a tirar una moneda (sin capacidad discriminativa) y `C = 1` a discriminación perfecta; en la práctica clínica, valores entre 0.6 y 0.7 se consideran aceptables y por encima de 0.8, muy buenos. Un valor alrededor de 0.65 indica que el modelo acierta a ordenar (peor pronóstico = evento antes) de forma claramente mejor que el azar, pero con margen de mejora.
 
 ## Validación del modelo
 
@@ -1216,6 +1249,8 @@ pool_fit <- pool(fit_imp)
 summary(pool_fit)
 ```
 
+**Cómo leer la salida de `pool`**: al imputar `m = 5` conjuntos y combinar con las reglas de Rubin, la tabla muestra `estimate` (coeficiente promediado entre imputaciones), `std.error`, `statistic` y `p.value`. La gracia es que el error estándar ya incorpora tanto la incertidumbre *dentro* de cada imputación como la incertidumbre *entre* imputaciones; ignorar esa segunda parte (haciendo un único análisis con casos completos) suele subestimar el error y dar p-valores demasiado optimistas.
+
 ## Selección de variables
 
 ### Método backward
@@ -1230,6 +1265,8 @@ full_model <- coxph(Surv(time, status) ~ age + sex + ph.ecog + ph.karno +
 step_model <- step(full_model, direction = "backward", trace = 0)
 summary(step_model)
 ```
+
+**Cómo leer la salida (y un aviso de rigor)**: `step()` elimina covariables de una en una buscando el menor AIC, y el `summary` final es el del modelo resultante. Es una herramienta cómoda, pero conviene usarla con cautela: la selección automática puede sobreajustar, y los p-valores del modelo final están sesgados (no reflejan la búsqueda previa). Mejor como guía exploratoria que como prueba concluyente.
 
 ### Regularización (LASSO)
 
@@ -1252,6 +1289,8 @@ coef(lasso_fit, s = "lambda.min")
 # Gráfico
 plot(lasso_fit)
 ```
+
+**Cómo leer la salida de LASSO**: la matriz de coeficientes en `s = "lambda.min"` es dispersa: las covariables con coeficiente **0** han sido "expulsadas" del modelo, y las que conservan un valor distinto de cero son las que el LASSO considera útiles para la predicción. El gráfico muestra la curva de validación cruzada (error según $\log\lambda$): `lambda.min` es el que minimiza el error y `lambda.1se` el más parsimonioso dentro de una desviación estándar (muchas veces preferible por simplicidad).
 
 ## Reporte de resultados
 
@@ -1276,6 +1315,8 @@ tabla <- crear_tabla(cox_fit)
 kable(tabla, digits = 3, 
       caption = "Resultados del modelo de Cox: razones de riesgos (Hazard Ratios) e intervalos de confianza al 95%")
 ```
+
+**Cómo leer esta tabla**: es el resumen definitivo para un informe. Para cada variable tienes el `Coeficiente` (log-HR), el `HR` (razón de riesgos), el `IC_inf`/`IC_sup` (IC95% del HR) y el `p_valor`. La lectura clínica: `HR = 1` indica ausencia de efecto; `HR > 1`, mayor riesgo; `HR < 1`, menor riesgo. Si el IC95% no incluye el 1 y el p-valor es pequeño, el resultado apoya un efecto; si incluye el 1, no se puede descartar la ausencia de efecto.
 
 ### Gráfico Forest Plot
 
@@ -1306,6 +1347,8 @@ forestplot(tabletext,
            xlab = "Razón de riesgos",
            col = fpColors(box = "royalblue", line = "darkblue"))
 ```
+
+**Cómo leer el forest plot**: cada fila es una covariable con su HR representado como un punto y su IC95% como una línea horizontal. La referencia es la línea vertical en `HR = 1`. Si el intervalo no cruza esa línea, el efecto es "significativo" al 5%; si la cruza, no se puede descartar el efecto nulo. El forest plot resume de un vistazo magnitud, dirección y precisión de todos los efectos.
 
 # Casos de estudio {#sec-casos}
 
@@ -1342,6 +1385,8 @@ cox_bmt <- coxph(Surv(time, status) ~ age + donor + disease, data = bmt)
 summary(cox_bmt)
 ```
 
+**Cómo leer este caso**: al ser datos simulados, la lectura es *ilustrativa* del flujo de trabajo, no una conclusión clínica real. El `summary(cox_bmt)` se interpreta igual que el Cox general: `exp(coef)` por fila, con la diferencia de que ahora tienes covariables categóricas (el donante y la enfermedad se desglosan en categorías de referencia). Lo importante aquí es practicar el patrón completo: KM descriptivo + modelo multivariado + inspección de HR.
+
 ## Caso 2: Cáncer de mama
 
 ```{r caso-mama}
@@ -1371,6 +1416,8 @@ summary(cox_mama)
 test_ph_mama <- cox.zph(cox_mama)
 print(test_ph_mama)
 ```
+
+**Cómo leer `cox.zph` en este caso**: la tabla da, para cada covariable (y globalmente), un `chisq` y un p-valor. Aquí conviene mirar la fila `GLOBAL`: si su p-valor es grande (> 0.05), la asunción de riesgos proporcionales se sostiene para el conjunto del modelo; si alguna covariable individual da un p-valor pequeño, esa variable en concreto no tiene un efecto proporcional y habría que estratificar o modelar su efecto dependiente del tiempo.
 
 # Software y recursos {#sec-recursos}
 

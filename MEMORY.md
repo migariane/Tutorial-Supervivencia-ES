@@ -1,39 +1,51 @@
-# Memory — Cambios recientes (Supervivencia)
+# Memory — Tutorial de Análisis de Supervivencia (Supervivencia)
 
-## Archivo principal editado
-- **`SURVIVAL/Tutorial-Supervivencia-ES/index.qmd`**
-  - Añadidas ampliaciones de rigor y explicación intuitiva para conceptos de supervivencia:
-    - Introducción y motivación del análisis (describir vs cuantificar efectos) 
-    - Interpretación humana de la **censura**
-    - Lecturas intuitivas de **`S(t)`**, **`h(t)`** (incluye corrección de consistencia “martingala/martingale” en el texto) y **`H(t)`**
-    - Interpretación/lectura de salida para:
-      - Kaplan–Meier (cómo impacta la censura)
-      - Log-rank (cómo interpretar el p-valor en el contexto de HR/proporcionalidad)
-      - Cox:
-        - Interpretación práctica de **HR**
-        - Lectura de **IC95%** para HR
-        - Lectura humana de **Schoenfeld (`cox.zph`)**
-        - Diagnósticos: residuos de martingala/deviance y lectura visual
-        - Influencia: explicación de **DFBETAs**
-      - Predicción y predicciones a **1 y 2 años** (interpretación de `summary(..., times=...)`)
-      - **C-index** (interpretación de discriminación bajo censura)
-      - **Riesgos competitivos**: interpretación de CIF, Test de Gray y lectura clínica de Fine–Gray
-      - Validación: **validación cruzada** (C-index medio y estabilidad) y **calibración**
-      - Extensión de predicción individual y **nomogramas**
-  - Se ejecutó `quarto render index.qmd` con éxito.
+## Qué es este proyecto
+- Repo standalone de GitHub: **`migariane/Tutorial-Supervivencia-ES`**.
+- Localmente vive anidado en el monorepo de Dropbox: `SURVIVAL/Tutorial-Supervivencia-ES/`.
+- **Importante:** dentro del repo de GitHub, `index.qmd` está en la **raíz** (no hay carpeta `SURVIVAL/` en el remoto). La ruta `SURVIVAL/…` solo existe en el Dropbox local.
 
-## Build y despliegue (GitHub Pages)
-- Se detectó que la página publicada estaba usando el sitio Quarto del **README/root**, no el tutorial.
-- **Workflow corregido:** **`.github/workflows/publish.yml`**
-  - Antes: `quarto render` y upload de `_site/` desde el directorio raíz del repo.
-  - Ahora:
-    - `cd SURVIVAL/Tutorial-Supervivencia-ES` antes de render
-    - se sube `SURVIVAL/Tutorial-Supervivencia-ES/_site/`
+## Fuente de verdad
+- **`index.qmd`** (raíz del repo) — tutorial Quarto de supervivencia (RevealJS / sitio web).
+- `_quarto.yml`, `references.bib`, `vancouver.csl`, `styles.css`.
 
-## Commits / push (referencias)
-- `Enhance survival tutorial explanations` (commit en `SURVIVAL/Tutorial-Supervivencia-ES`)
-- `Fix GitHub Pages publish to render tutorial` (commit **6fd81d0**)
+## Cambios de contenido (última ronda)
+Se añadieron interpretaciones humanizadas y con rigor de **las salidas de R** tras cada bloque clave:
+- `summary(km_fit)`: columnas `time/n.risk/n.event/survival/std.err` y por qué el IC se abre al final.
+- `print(km_fit, print.rmean = TRUE)`: mediana (y `NA` cuando no se alcanza 0.5) + media restringida.
+- `survdiff` (log-rank y Wilcoxon `rho=1`): `Observed` vs `Expected`, `Chisq` y p-valor.
+- `survreg` (exponencial, Weibull): escala log-tiempo, `Log(scale)`/`Scale`, `gamma = 1/scale`, diagnóstico log-log.
+- Comparación AIC/BIC: regla de 2–4 puntos, BIC más parsimonioso.
+- `summary(cox_fit)`: `coef`, `exp(coef)`, `z`, `Pr(>|z|)`, `Concordance`, tests LR/Wald/score.
+- Modelo estratificado `strata(sex)`: por qué desaparece el HR del sexo.
+- `crr` (Fine-Gray), fragilidad (`frailty(litter)`), Andersen-Gill (`cluster(id)`), C-index.
+- Validación cruzada, calibración, imputación múltiple (`pool`), backward (`step`), LASSO (`lambda.min`/`lambda.1se`), tabla de resultados, forest plot, casos de estudio.
+- Corrección de consistencia terminológica: **"residuos de martingale"** (no "martingala").
+- Aclaración AFT vs HR: AFT actúa sobre el **tiempo** (`exp(beta)` multiplica el tiempo); Cox actúa sobre el **riesgo** (`exp(beta)` = HR).
+
+## Despliegue a GitHub Pages (estado actual, correcto)
+- **Problema raíz resuelto:** había **dos** workflows compitiendo por Pages:
+  1. `jekyll-gh-pages.yml` → construía el **README** con Jekyll (esto era lo que se veía publicado).
+  2. `publish.yml` → construía con Quarto.
+- **Acción tomada:** se **eliminó `jekyll-gh-pages.yml`** (era el que publicaba el README).
+- **`publish.yml` actual** hace, en la raíz del repo:
+  - `quarto render` (sin `cd`, porque `index.qmd` está en la raíz)
+  - `upload-pages-artifact` con `path: _site`
+  - deploy con `actions/deploy-pages`.
+- **No usar** `cd SURVIVAL/Tutorial-Supervivencia-ES` ni rutas con prefijo `SURVIVAL/` dentro del workflow: no existen en el runner.
+
+## Comandos útiles
+```bash
+# render local (macOS, quarto en /usr/local/bin)
+cd SURVIVAL/Tutorial-Supervivencia-ES
+PATH="/usr/local/bin:$PATH" quarto render index.qmd
+
+# git (el repo tiene su propio .git; el git del monorepo no aplica aquí)
+git add -A && git commit -m "..." && git push
+```
+- Cada `git push` a `main` dispara automáticamente el workflow de Pages.
 
 ## Notas para futuros updates
-- Si cambias `index.qmd`, ejecuta `quarto render` en `SURVIVAL/Tutorial-Supervivencia-ES/`.
-- Si observas que GitHub Pages vuelve a mostrar el README, revisa que el workflow haga `cd` al directorio correcto y que el `upload-pages-artifact` apunte al `_site` correcto.
+- Al editar `index.qmd`, renderizar y confirmar que `_site/index.html` se genera sin errores.
+- Si Pages vuelve a mostrar el README: verificar que `jekyll-gh-pages.yml` siga eliminado y que `publish.yml` renderice/upload `_site` desde la raíz.
+- Los artefactos generados (`_freeze/`, `index_cache/`, `site_libs/`, `_site/`) son derivados; la fuente de verdad es `index.qmd`.
