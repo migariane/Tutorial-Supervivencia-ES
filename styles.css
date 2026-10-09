@@ -214,27 +214,18 @@ footer {
 
 .author-block img {
   display: block;
-  max-width: 240px;
+  max-width: 140px;
   height: auto;
   margin: 0 0 0.75rem 0;
-  padding: 0.5rem 0.75rem;
-  background-color: #FFFFFF;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
 }
 
 .author-block p {
   margin: 0.25rem 0;
 }
 
-/* Modo oscuro: el logo conserva su placa blanca para mantenerse legible */
+/* Modo oscuro */
 html.dark .author-block {
   background-color: #2b3035;
-  border-color: #495057;
-}
-
-html.dark .author-block img {
-  background-color: #FFFFFF;
   border-color: #495057;
 }
 

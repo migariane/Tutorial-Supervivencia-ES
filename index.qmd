@@ -19,11 +19,9 @@ doi: "10.5281/zenodo.23218107"
 citeproc: true
 ---
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23218107.svg)](https://doi.org/10.5281/zenodo.23218107)
-
 ::: {.author-block}
 
-![Logo de la Universidad de Granada](images/logo_ugr.png){width=240px}
+![Logo de la Universidad de Granada](images/logo_ugr.png){width=140px}
 
 **Miguel Ángel Luque Fernández** · Departamento de Estadística e Investigación Operativa, Universidad de Granada
 
