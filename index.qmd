@@ -270,15 +270,45 @@ $$\widehat{\text{SE}}[\hat{S}(t)] = \sqrt{\widehat{\text{Var}}[\hat{S}(t)]}$$
 
 ### Intervalos de confianza
 
-El intervalo de confianza al $(1-\alpha) \times 100\%$ para $S(t)$ se puede construir usando:
+El intervalo de confianza al $(1-\alpha)\times 100\%$ para $S(t)$ se puede construir por dos vías: directamente sobre $S(t)$ (método lineal) o sobre una transformación que respete su rango $[0,1]$ (método log-log).
 
 **Método lineal** (puede producir límites fuera de $[0,1]$):
 
 $$\hat{S}(t) \pm z_{\alpha/2} \times \widehat{\text{SE}}[\hat{S}(t)]$$
 
-**Método log-log** (recomendado, garantiza $\hat{S}(t) \in [0,1]$):
+**Método log-log** (recomendado, garantiza $\hat{S}(t) \in [0,1]$): se obtiene aplicando el **método delta** a la transformación $g(x)=\log(-\log x)$ [@klein2003; @hosmer2008].
 
-$$\hat{S}(t)^{\exp\left(\pm \frac{z_{\alpha/2}}{\log \hat{S}(t) \times \widehat{\text{SE}}[\hat{S}(t)]}\right)}$$
+#### El método delta
+
+El **método delta** es una técnica general para aproximar la varianza de una función $g$ de un estimador $\hat{\theta}$ cuando solo conocemos la varianza de $\hat{\theta}$. Si $g$ es diferenciable, la aproximación de Taylor de primer orden en torno a $\theta$ da
+
+$$g(\hat{\theta}) \approx g(\theta) + g'(\theta)\,(\hat{\theta}-\theta),$$
+
+y, tomando varianzas en ambos lados (con $g(\theta)$ y $g'(\theta)$ constantes),
+
+$$\text{Var}[g(\hat{\theta})] \approx [g'(\theta)]^2 \, \text{Var}(\hat{\theta}).$$
+
+En la práctica sustituimos $\theta$ por su estimación $\hat{\theta}$ y la varianza por su estimador $\widehat{\text{Var}}(\hat{\theta})$.
+
+#### Aplicación al intervalo log-log
+
+Para que el intervalo nunca salga de $[0,1]$, aplicamos el método delta a la transformación $g(S)=\log(-\log S)$. Su derivada es
+
+$$g'(S)=\frac{d}{dS}\log(-\log S)=\frac{1}{S\log S}.$$
+
+Como $S\in(0,1)$, se cumple $\log S<0$, de modo que $|g'(S)|=\dfrac{1}{S\,|\log S|}$. Aplicando el método delta,
+
+$$\widehat{\text{SE}}\left[\log(-\log \hat{S})\right] = \frac{\widehat{\text{SE}}[\hat{S}]}{\hat{S}\,|\log \hat{S}|}.$$
+
+El intervalo del $(1-\alpha)\times 100\%$ para $\log(-\log S)$ es entonces
+
+$$\log(-\log \hat{S}) \pm z_{\alpha/2}\, \frac{\widehat{\text{SE}}[\hat{S}]}{\hat{S}\,|\log \hat{S}|}.$$
+
+Deshaciendo la transformación (es decir, aplicando $S=\exp(-\exp(\cdot))$ a los dos extremos) se obtiene el **intervalo log-log** para $S(t)$:
+
+$$\hat{S}(t)^{\exp\left(\pm\, z_{\alpha/2}\, \dfrac{\widehat{\text{SE}}[\hat{S}(t)]}{\hat{S}(t)\,|\log \hat{S}(t)|}\right)}.$$
+
+Este intervalo está siempre dentro de $[0,1]$ y es asimétrico, lo que refleja mejor la forma de la distribución muestral de $\hat{S}(t)$ en las colas.
 
 ### Ejemplo: datos de leucemia
 
