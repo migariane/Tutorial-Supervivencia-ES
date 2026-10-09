@@ -218,10 +218,10 @@ lambda <- 0.4
 t <- seq(0, 8, length.out = 400)
 
 # Cálculo directo de las cuatro funciones
-S <- exp(-(lambda * t)^gamma)
-f <- lambda * gamma * (lambda * t)^(gamma - 1) * exp(-(lambda * t)^gamma)
-h <- lambda * gamma * (lambda * t)^(gamma - 1)
-H <- (lambda * t)^gamma
+S <- exp(-lambda * t^gamma)
+f <- lambda * gamma * t^(gamma - 1) * exp(-lambda * t^gamma)
+h <- lambda * gamma * t^(gamma - 1)
+H <- lambda * t^gamma
 
 # Panel 2x2
 par(mfrow = c(2, 2))
@@ -1741,6 +1741,45 @@ summary(pred, times = 365)
 
 # Apéndice B: Fórmulas matemáticas {#sec-apendice-b}
 
+## Funciones fundamentales
+
+| Función | Definición | Relación con las demás |
+|:---|:---|:---|
+| Supervivencia | $S(t)=P(T>t)=1-F(t)$ | $S(t)=\exp(-H(t))$ |
+| Densidad | $f(t)=\dfrac{dF(t)}{dt}=-\dfrac{dS(t)}{dt}$ | $f(t)=h(t)S(t)$ |
+| Riesgo (hazard) | $h(t)=\dfrac{f(t)}{S(t)}$ | $h(t)=-\dfrac{d}{dt}\log S(t)$ |
+| Riesgo acumulado | $H(t)=\displaystyle\int_0^t h(u)\,du$ | $H(t)=-\log S(t)$ |
+
+: Las cuatro funciones del análisis de supervivencia y sus relaciones
+
+## Estimadores no paramétricos
+
+**Kaplan-Meier** (supervivencia):
+
+$$\hat{S}(t)=\prod_{j:\,t_j\le t}\left(1-\frac{d_j}{n_j}\right)$$
+
+**Varianza de Greenwood**:
+
+$$\widehat{\text{Var}}[\hat{S}(t)]=\hat{S}(t)^2\sum_{j:\,t_j\le t}\frac{d_j}{n_j(n_j-d_j)}$$
+
+**Nelson-Aalen** (riesgo acumulado):
+
+$$\hat{H}_{NA}(t)=\sum_{j:\,t_j\le t}\frac{d_j}{n_j}$$
+
+**Riesgo acumulado vía Kaplan-Meier**:
+
+$$\hat{H}_{KM}(t)=-\log\hat{S}_{KM}(t)$$
+
+## Intervalos de confianza para $S(t)$
+
+**Método lineal**:
+
+$$\hat{S}(t)\pm z_{\alpha/2}\,\widehat{\text{SE}}[\hat{S}(t)]$$
+
+**Método log-log** (vía método delta):
+
+$$\hat{S}(t)^{\exp\left(\pm\, z_{\alpha/2}\, \dfrac{\widehat{\text{SE}}[\hat{S}(t)]}{\hat{S}(t)\,|\log \hat{S}(t)|}\right)}$$
+
 ## Distribuciones comunes
 
 | Distribución | $h(t)$ | $S(t)$ | Parámetros |
@@ -1751,6 +1790,18 @@ summary(pred, times = 365)
 | Log-logística | $\frac{\lambda \gamma t^{\gamma-1}}{1 + \lambda t^\gamma}$ | $\frac{1}{1 + \lambda t^\gamma}$ | $\lambda, \gamma > 0$ |
 
 : Funciones de riesgo y supervivencia para distribuciones comunes
+
+## Modelo de Cox
+
+$$h(t\mid \mathbf{X})=h_0(t)\exp(\boldsymbol{\beta}'\mathbf{X})$$
+
+**Hazard ratio** para un incremento de una unidad en $X_k$:
+
+$$\text{HR}_k=\frac{h(t\mid X_k+1)}{h(t\mid X_k)}=\exp(\beta_k)$$
+
+**Estimador de Breslow** (hazard basal acumulado):
+
+$$\hat{H}_0(t)=\sum_{j:\,t_j\le t}\frac{d_j}{\sum_{i\in R(t_j)}\exp(\hat{\boldsymbol{\beta}}'\mathbf{X}_i)}$$
 
 ## Tests estadísticos
 
