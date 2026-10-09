@@ -19,6 +19,8 @@ doi: "10.5281/zenodo.23218107"
 citeproc: true
 ---
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23218107.svg)](https://doi.org/10.5281/zenodo.23218107)
+
 # Introducción {#sec-intro}
 
 ## ¿Qué es el análisis de supervivencia?
@@ -101,6 +103,17 @@ theme_set(theme_minimal())
 ```
 
 # Conceptos fundamentales {#sec-conceptos}
+
+Las cuatro funciones que definimos a continuación son **cuatro formas equivalentes de describir el mismo fenómeno**: el tiempo $T$ hasta que ocurre el evento. Cada una responde a una pregunta clínica distinta y, por tanto, resulta útil en un contexto diferente. Entenderlas juntas —y saber pasar de una a otra— es la base de todo lo que sigue (Kaplan–Meier, Cox, modelos paramétricos).
+
+| Función | Símbolo | Pregunta que responde | Rango | Utilidad práctica |
+|---|---|---|---|---|
+| Supervivencia | $S(t)$ | ¿Qué fracción sigue *sin evento* más allá de $t$? | $[0,1]$, decreciente | Pronóstico; comparar grupos (curvas Kaplan–Meier) |
+| Densidad | $f(t)$ | ¿Con qué *intensidad* caen los eventos alrededor de $t$? | $\ge 0$ | Describir el patrón temporal de los fallos |
+| Riesgo (hazard) | $h(t)$ | ¿Cuál es el *peligro instantáneo* ahora, para quienes siguen en riesgo? | $\ge 0$ (es una **tasa**) | Modelar el mecanismo (riesgo creciente/decreciente/constante); base del modelo de Cox |
+| Riesgo acumulado | $H(t)$ | ¿Cuánto peligro se ha *acumulado* hasta $t$? | $\ge 0$, creciente | Puente matemático $S(t)=e^{-H(t)}$; base de Nelson–Aalen |
+
+En esencia: $S(t)$ y $f(t)$ describen **qué se observa** (la curva de supervivencia y cómo se reparten los eventos en el tiempo), mientras que $h(t)$ y $H(t)$ describen el **mecanismo** del proceso (la intensidad instantánea del riesgo y su acumulación). Por eso, cuando un clínico quiere *predecir* o *comparar* pronósticos mira $S(t)$; cuando un modelo quiere explicar *por qué* un grupo falla antes que otro, modela $h(t)$.
 
 ## Función de supervivencia
 
@@ -186,6 +199,42 @@ f(t) &= h(t)S(t) \\
 h(t) &= \frac{f(t)}{S(t)}=-\frac{d}{dt}\log S(t) \\
 H(t) &= \int_0^t h(u)\,du=-\log S(t)
 \end{aligned}$$
+
+### Visualización de las cuatro funciones
+
+El siguiente ejemplo ilustra las cuatro funciones para una distribución **Weibull** con forma $\gamma = 2$ (riesgo creciente) y escala $\lambda = 0.4$. Observa cómo se relacionan: $S(t)$ desciende de 1 a 0; $f(t)$ muestra un pico (el momento de mayor "densidad" de eventos); $h(t)$ crece linealmente (típico de un proceso de envejecimiento); y $H(t)$ acumula ese riesgo de forma creciente.
+
+```{r}
+#| label: fig-funciones-relaciones
+#| fig-cap: "Las cuatro funciones del análisis de supervivencia para una Weibull con forma γ = 2 (riesgo creciente) y escala λ = 0.4"
+#| fig-width: 8
+#| fig-height: 6
+
+# Parámetros de una distribución Weibull (riesgo creciente)
+gamma <- 2
+lambda <- 0.4
+
+# Rejilla de tiempos de evaluación
+t <- seq(0, 8, length.out = 400)
+
+# Cálculo directo de las cuatro funciones
+S <- exp(-(lambda * t)^gamma)
+f <- lambda * gamma * (lambda * t)^(gamma - 1) * exp(-(lambda * t)^gamma)
+h <- lambda * gamma * (lambda * t)^(gamma - 1)
+H <- (lambda * t)^gamma
+
+# Panel 2x2
+par(mfrow = c(2, 2))
+plot(t, S, type = "l", lwd = 2, col = "#1f77b4",
+     main = "Supervivencia S(t)", xlab = "Tiempo", ylab = "S(t)")
+plot(t, f, type = "l", lwd = 2, col = "#ff7f0e",
+     main = "Densidad f(t)", xlab = "Tiempo", ylab = "f(t)")
+plot(t, h, type = "l", lwd = 2, col = "#2ca02c",
+     main = "Riesgo h(t)", xlab = "Tiempo", ylab = "h(t)")
+plot(t, H, type = "l", lwd = 2, col = "#d62728",
+     main = "Riesgo acumulado H(t)", xlab = "Tiempo", ylab = "H(t)")
+par(mfrow = c(1, 1))
+```
 
 
 # Métodos no paramétricos {#sec-noparametricos}
