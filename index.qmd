@@ -108,7 +108,91 @@ La **función de supervivencia** $S(t)$ define la probabilidad de que un individ
 
 Lectura intuitiva: $S(t)$ responde a la pregunta “si el paciente ha llegado hasta (o más allá de) el tiempo 0, ¿qué fracción esperada seguiría sin evento después del tiempo $t$?”. En presencia de censura, $S(t)$ no se “cuenta” directamente como proporción cruda, sino que se estima usando información de quién permaneció en riesgo.
 
-$$S(t) = P(T > t) = 1 - F(t)$$
+$$S(t)=P(T>t)=1-F(t),\qquad F(t)=P(T\le t).$$
+
+**Propiedades**:
+
+1.  $S(0)=1$ (todos están vivos al inicio)
+2.  $S(\infty)=0$ (eventualmente todos experimentan el evento)
+3.  $S(t)$ es una función decreciente y continua por la derecha
+
+## Función de densidad
+
+La **función de densidad** $f(t)$ se define como probabilidad por unidad de tiempo en un intervalo infinitesimal:
+
+$$f(t)=\lim_{\Delta t\to 0}\frac{P(t\le T<t+\Delta t)}{\Delta t}.$$
+
+### Derivación de $f(t)=\frac{dF(t)}{dt}$
+
+Como $P(t\le T<t+\Delta t)=F(t+\Delta t)-F(t)$,
+
+$$f(t)=\lim_{\Delta t\to 0}\frac{F(t+\Delta t)-F(t)}{\Delta t}=\frac{dF(t)}{dt}.$$
+
+### Derivación de $f(t)=-\frac{dS(t)}{dt}$
+
+Dado que $S(t)=1-F(t)$,
+
+$$\frac{dS(t)}{dt}=-\frac{dF(t)}{dt}=-f(t)\quad\Rightarrow\quad f(t)=-\frac{dS(t)}{dt}.$$
+
+## Función de riesgo (hazard)
+
+La **función de riesgo** $h(t)$ es la tasa instantánea de ocurrencia del evento en $t$, condicionada a que el individuo ya ha sobrevivido hasta $t$:
+
+$$h(t)=\lim_{\Delta t\to 0}\frac{P(t\le T<t+\Delta t\mid T\ge t)}{\Delta t}.$$
+
+### Derivación de $h(t)=\frac{f(t)}{S(t)}$
+
+**Paso 1 (probabilidad condicional)**
+
+$$P(t\le T<t+\Delta t\mid T\ge t)=\frac{P(t\le T<t+\Delta t)}{P(T\ge t)}=\frac{P(t\le T<t+\Delta t)}{S(t)}.$$
+
+**Paso 2 (sustituir en el límite)**
+
+$$h(t)=\lim_{\Delta t\to 0}\frac{\frac{P(t\le T<t+\Delta t)}{S(t)}}{\Delta t}=\frac{1}{S(t)}\lim_{\Delta t\to 0}\frac{P(t\le T<t+\Delta t)}{\Delta t}=\frac{f(t)}{S(t)}.$$
+
+### Derivación de $h(t)=-\frac{d}{dt}\log S(t)$
+
+Como $f(t)=-\frac{dS(t)}{dt}$,
+
+$$h(t)=\frac{-S'(t)}{S(t)}=-\frac{d}{dt}\log S(t).$$
+
+**Interpretación**: $h(t)$ es una **tasa** (eventos por unidad de tiempo), no una probabilidad. Por tanto no está acotada en $[0,1]$ y típicamente $h(t)\ge 0$ [@kleinbaum2012].
+
+## Función de riesgo acumulado
+
+La **función de riesgo acumulado** $H(t)$ agrega el hazard desde 0 hasta $t$:
+
+$$H(t)=\int_0^t h(u)\,du.$$
+
+### Derivación de $S(t)=\exp(-H(t))$
+
+Partimos de
+
+$$h(t)=-\frac{d}{dt}\log S(t).$$
+
+Reordenando e integrando desde 0 hasta $t$:
+
+$$\log S(t)-\log S(0)=-\int_0^t h(u)\,du=-H(t).$$
+
+Como $S(0)=1$ (luego $\log S(0)=0$), queda
+
+$$S(t)=\exp(-H(t))=\exp\left(-\int_0^t h(u)\,du\right).$$
+
+## Relaciones entre funciones
+
+$$\begin{aligned}
+S(t) &= \exp\left(-\int_0^t h(u)\,du\right) \\
+f(t) &= h(t)S(t) \\
+h(t) &= \frac{f(t)}{S(t)}=-\frac{d}{dt}\log S(t) \\
+H(t) &= \int_0^t h(u)\,du=-\log S(t)
+\end{aligned}$$
+
+
+La **función de supervivencia** $S(t)$ define la probabilidad de que un individuo sobreviva más allá del tiempo $t$:
+
+Lectura intuitiva: $S(t)$ responde a la pregunta “si el paciente ha llegado hasta (o más allá de) el tiempo 0, ¿qué fracción esperada seguiría sin evento después del tiempo $t$?”. En presencia de censura, $S(t)$ no se “cuenta” directamente como proporción cruda, sino que se estima usando información de quién permaneció en riesgo.
+
+$$S(t)=P(T>t)=1-F(t),\qquad F(t)=P(T\le t).$$
 
 donde $F(t) = P(T \leq t)$ es la función de distribución acumulada.
 
