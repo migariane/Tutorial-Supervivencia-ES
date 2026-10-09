@@ -300,11 +300,23 @@ Como $S\in(0,1)$, se cumple $\log S<0$, de modo que $|g'(S)|=\dfrac{1}{S\,|\log 
 
 $$\widehat{\text{SE}}\left[\log(-\log \hat{S})\right] = \frac{\widehat{\text{SE}}[\hat{S}]}{\hat{S}\,|\log \hat{S}|}.$$
 
-El intervalo del $(1-\alpha)\times 100\%$ para $\log(-\log S)$ es entonces
+A continuación, el intervalo de confianza se construye en **dos pasos** [@klein2003; @hosmer2008]:
 
-$$\log(-\log \hat{S}) \pm z_{\alpha/2}\, \frac{\widehat{\text{SE}}[\hat{S}]}{\hat{S}\,|\log \hat{S}|}.$$
+**Paso 1 — Intervalo en la escala log-log.** Se forma el intervalo del $(1-\alpha)\times 100\%$ para $\log(-\log S(t))$:
 
-Deshaciendo la transformación (es decir, aplicando $S=\exp(-\exp(\cdot))$ a los dos extremos) se obtiene el **intervalo log-log** para $S(t)$:
+$$\log(-\log \hat{S}(t)) \pm z_{\alpha/2}\,\sqrt{\widehat{\text{Var}}\Big(\log(-\log \hat{S}(t))\Big)}.$$
+
+Sustituyendo la varianza que da el método delta, este intervalo equivale a
+
+$$\log(-\log \hat{S}(t)) \pm z_{\alpha/2}\, \frac{\widehat{\text{SE}}[\hat{S}(t)]}{\hat{S}(t)\,|\log \hat{S}(t)|}.$$
+
+Sus dos extremos se denotan como límite **inferior** $\text{CI}_{\text{lower}}$ y **superior** $\text{CI}_{\text{upper}}$, ambos en la escala log-log.
+
+**Paso 2 — Volver a la escala de supervivencia.** Se transforman los límites mediante **doble exponenciación**, invirtiendo $g(S)=\log(-\log S)$, es decir, aplicando $S=\exp(-\exp(\cdot))$. Como $g$ es **decreciente**, el límite superior de la escala log-log se convierte en el límite inferior de la escala original y viceversa:
+
+$$\text{IC}=\Big(\exp\big(-\exp(\text{CI}_{\text{upper}})\big),\ \exp\big(-\exp(\text{CI}_{\text{lower}})\big)\Big).$$
+
+Desarrollando los dos extremos, el intervalo se escribe de forma compacta como
 
 $$\hat{S}(t)^{\exp\left(\pm\, z_{\alpha/2}\, \dfrac{\widehat{\text{SE}}[\hat{S}(t)]}{\hat{S}(t)\,|\log \hat{S}(t)|}\right)}.$$
 
