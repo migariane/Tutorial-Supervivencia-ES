@@ -188,58 +188,6 @@ H(t) &= \int_0^t h(u)\,du=-\log S(t)
 \end{aligned}$$
 
 
-La **función de supervivencia** $S(t)$ define la probabilidad de que un individuo sobreviva más allá del tiempo $t$:
-
-Lectura intuitiva: $S(t)$ responde a la pregunta “si el paciente ha llegado hasta (o más allá de) el tiempo 0, ¿qué fracción esperada seguiría sin evento después del tiempo $t$?”. En presencia de censura, $S(t)$ no se “cuenta” directamente como proporción cruda, sino que se estima usando información de quién permaneció en riesgo.
-
-$$S(t)=P(T>t)=1-F(t),\qquad F(t)=P(T\le t).$$
-
-donde $F(t) = P(T \leq t)$ es la función de distribución acumulada.
-
-**Propiedades**:
-
-1.  $S(0) = 1$ (todos están vivos al inicio)
-2.  $S(\infty) = 0$ (eventualmente todos experimentan el evento)
-3.  $S(t)$ es una función decreciente y continua por la derecha
-
-## Función de densidad
-
-La **función de densidad** de probabilidad se define como:
-
-$$f(t) = \lim_{\Delta t \to 0} \frac{P(t \leq T < t + \Delta t)}{\Delta t} = \frac{dF(t)}{dt} = -\frac{dS(t)}{dt}$$
-
-## Función de riesgo (hazard)
-
-La **función de riesgo** $h(t)$ (o *hazard function*) representa la tasa instantánea de ocurrencia del evento en el tiempo $t$, dado que el individuo ha sobrevivido hasta ese momento:
-
-$$h(t) = \lim_{\Delta t \to 0} \frac{P(t \leq T < t + \Delta t \mid T \geq t)}{\Delta t} = \frac{f(t)}{S(t)} = -\frac{d \log S(t)}{dt}$$
-
-**Interpretación**: $h(t)$ es la probabilidad condicional instantánea del evento. Es importante recordar que la función de riesgo es una **tasa** (con unidades de eventos por unidad de tiempo) y no una probabilidad: a diferencia de $S(t)$ y $F(t)$, que están acotadas en $[0,1]$, el hazard puede tomar cualquier valor no negativo, $h(t) \ge 0$ [@kleinbaum2012].
-
-Traducción a lenguaje natural: $h(t)$ compara el “peligro” de que ocurra el evento en $t$ para quienes todavía no lo han tenido; no dice directamente “probabilidad final”, sino la intensidad local del riesgo.
-
-## Función de riesgo acumulado
-
-La **función de riesgo acumulado** $H(t)$ se define como:
-
-Interpretación: mientras que $h(t)$ es el “peligro” instantáneo en un instante, $H(t)$ es la **acumulación de ese peligro desde 0 hasta** $t$. Esta es la razón por la que aparece en la relación $S(t)=\exp(-H(t))$: si $H(t)$ crece rápido, $S(t)$ cae rápido.
-
-$$H(t) = \int_0^t h(u) \, du = -\log S(t)$$
-
-De donde se deduce:
-
-$$S(t) = \exp\left(-H(t)\right) = \exp\left(-\int_0^t h(u) \, du\right)$$
-
-## Relaciones entre funciones
-
-Las cuatro funciones ($S(t)$, $f(t)$, $h(t)$, $H(t)$) están interrelacionadas:
-
-$$\begin{aligned}
-S(t) &= \exp\left(-\int_0^t h(u) \, du\right) \\
-f(t) &= h(t) S(t) \\
-h(t) &= \frac{f(t)}{S(t)} = -\frac{d \log S(t)}{dt}
-\end{aligned}$$
-
 # Métodos no paramétricos {#sec-noparametricos}
 
 ## Estimador de Kaplan-Meier {#sec-km}
