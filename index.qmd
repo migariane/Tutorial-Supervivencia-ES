@@ -494,8 +494,8 @@ A diferencia de $S(t)$ (estimada directamente con Kaplan-Meier), $H(t)$ admite d
 
 ### Diferencias entre $\hat{H}_{KM}$ y $\hat{H}_{NA}$
 
-1.  **Orden**: para muestras finitas, $\hat{H}_{NA}(t)$ es ligeramente *mayor* que $\hat{H}_{KM}(t)$ y, en consecuencia, $\hat{S}_{NA}(t)=\exp(-\hat{H}_{NA}(t))$ es *menor o igual* que $\hat{S}_{KM}(t)$. La diferencia se desvanece asintóticamente.
-2.  **Salto**: $\hat{H}_{NA}(t)$ salta $d_j/n_j$, mientras que $\hat{H}_{KM}(t)$ salta $-\log(1-d_j/n_j)$. Como $-\log(1-x)\ge x$, el salto de la versión KM es mayor por unidad; sin embargo, el producto acumulado de KM queda por debajo (porque $\prod_j(1-d_j/n_j) \le \exp(-\sum_j d_j/n_j)$).
+1.  **Orden**: para muestras finitas, $\hat{H}_{KM}(t)=-\log\hat{S}_{KM}(t)$ es ligeramente *mayor o igual* que $\hat{H}_{NA}(t)$ y, en consecuencia, la supervivencia de Nelson-Aalen $\hat{S}_{NA}(t)=\exp(-\hat{H}_{NA}(t))$ es *mayor o igual* que la de Kaplan-Meier $\hat{S}_{KM}(t)$. La diferencia es de segundo orden y se desvanece asintóticamente.
+2.  **Salto**: $\hat{H}_{NA}(t)$ salta $d_j/n_j$, mientras que $\hat{H}_{KM}(t)$ salta $-\log(1-d_j/n_j)$. Como $-\log(1-x)\ge x$ para $x\in[0,1)$, el salto de la versión KM es mayor, y por eso $\hat{H}_{KM}$ queda por encima de $\hat{H}_{NA}$. Equivalentemente, $\prod_j(1-d_j/n_j)\le \exp(-\sum_j d_j/n_j)$, es decir, $\hat{S}_{KM}(t)\le \hat{S}_{NA}(t)$.
 3.  **Base teórica**: Nelson-Aalen es la base del **estimador de Breslow** del hazard basal en el modelo de Cox [@breslow1974]; Kaplan-Meier es la referencia clásica para $S(t)$.
 
 ### Cálculo en R
@@ -531,7 +531,7 @@ head(cbind(tiempo = km_all$time,
            H_KM = round(-log(km_all$surv), 3)), 10)
 ```
 
-**Cómo leer la salida**: las dos curvas son prácticamente indistinguibles (los saltos coinciden en los mismos tiempos de evento), pero Nelson-Aalen (rojo) queda ligeramente por encima de la transformación de Kaplan-Meier (azul). La tabla confirma que, tiempo a tiempo, $H_{NA}$ supera apenas a $H_{KM}$, y que ambas crecen de forma monótona acumulando $d_j/n_j$ (o su transformación logarítmica).
+**Cómo leer la salida**: las dos curvas son prácticamente indistinguibles (saltan en los mismos tiempos de evento), pero la transformación de Kaplan-Meier (azul) queda ligeramente por encima de Nelson-Aalen (rojo). La tabla confirma que, tiempo a tiempo, $H_{NA}$ queda apenas por debajo de $H_{KM}$, y que ambas crecen de forma monótona acumulando $d_j/n_j$ (o su transformación logarítmica).
 
 # Modelos paramétricos {#sec-parametricos}
 
