@@ -452,6 +452,75 @@ plot(km_all, conf.int = FALSE, main = "Kaplan-Meier", xlab = "Tiempo", ylab = "S
 plot(na_fit, conf.int = FALSE, main = "Nelson-Aalen", xlab = "Tiempo", ylab = "S(t)")
 ```
 
+## Estimación del riesgo acumulado $H(t)$
+
+El **riesgo acumulado** $H(t)$ —también llamado **densidad de incidencia acumulada**— mide cuánta "intensidad de evento" se ha acumulado desde $0$ hasta $t$. En epidemiología, la *tasa* $h(t)$ es la **densidad de incidencia instantánea** (eventos por persona-tiempo en el instante $t$), y $H(t)$ es esa misma densidad integrada a lo largo del tiempo:
+
+$$H(t)=\int_0^t h(u)\,du.$$
+
+Si el hazard fuera constante e igual a $\lambda$ (modelo exponencial), entonces $H(t)=\lambda t$: el riesgo acumulado crecería linealmente con la pendiente igual a la tasa de incidencia.
+
+### Dos estimadores no paramétricos de $H(t)$
+
+A diferencia de $S(t)$ (estimada directamente con Kaplan-Meier), $H(t)$ admite dos estimadores no paramétricos equivalentes asintóticamente:
+
+1.  **Vía Kaplan-Meier**. Como $S(t)=\exp(-H(t))$, se deduce
+
+    $$\hat{H}_{KM}(t) = -\log \hat{S}_{KM}(t).$$
+
+    Es el "logaritmo negativo" de la curva de Kaplan-Meier.
+
+2.  **Nelson-Aalen**. Estima $H(t)$ directamente sumando los incrementos de riesgo $d_j/n_j$ [@nelson1972; @aalen1980]:
+
+    $$\hat{H}_{NA}(t) = \sum_{j: t_j \le t} \frac{d_j}{n_j}.$$
+
+### Interpretación
+
+- $\hat{H}_{NA}(t)$ acumula la **razón eventos/en-riesgo** en cada tiempo de evento: en cada salto se suma $d_j/n_j$, la proporción de sujetos que experimenta el evento en $t_j$ entre los que llegaron vivos a ese instante.
+- $\hat{H}_{KM}(t)$ transforma la supervivencia estimada; como $-\log x \approx 1-x$ cuando $x$ está cerca de 1, si los saltos son pequeños ambos estimadores coinciden casi exactamente.
+- Un $H(t)$ grande indica mucho "riesgo acumulado" (y por tanto $S(t)$ bajo). A diferencia de $S(t)\in[0,1]$, $H(t)$ **no está acotado** por arriba: puede superar 1 cuando el riesgo acumulado es elevado.
+
+### Diferencias entre $\hat{H}_{KM}$ y $\hat{H}_{NA}$
+
+1.  **Orden**: para muestras finitas, $\hat{H}_{NA}(t)$ es ligeramente *mayor* que $\hat{H}_{KM}(t)$ y, en consecuencia, $\hat{S}_{NA}(t)=\exp(-\hat{H}_{NA}(t))$ es *menor o igual* que $\hat{S}_{KM}(t)$. La diferencia se desvanece asintóticamente.
+2.  **Salto**: $\hat{H}_{NA}(t)$ salta $d_j/n_j$, mientras que $\hat{H}_{KM}(t)$ salta $-\log(1-d_j/n_j)$. Como $-\log(1-x)\ge x$, el salto de la versión KM es mayor por unidad; sin embargo, el producto acumulado de KM queda por debajo (porque $\prod_j(1-d_j/n_j) \le \exp(-\sum_j d_j/n_j)$).
+3.  **Base teórica**: Nelson-Aalen es la base del **estimador de Breslow** del hazard basal en el modelo de Cox [@breslow1974]; Kaplan-Meier es la referencia clásica para $S(t)$.
+
+### Cálculo en R
+
+```{r}
+#| label: fig-hazard-acumulado
+#| fig-cap: "Riesgo acumulado estimado por Kaplan-Meier (−log S(t)) y por Nelson-Aalen"
+#| fig-width: 8
+#| fig-height: 5
+
+data(aml, package = "survival")
+aml <- aml[!is.na(aml$x), ]
+
+# Kaplan-Meier (supervivencia) y su transformación a riesgo acumulado
+km_all <- survfit(Surv(time, status) ~ 1, data = aml)
+H_km <- -log(km_all$surv)
+
+# Nelson-Aalen (riesgo acumulado directo)
+na_fit <- survfit(Surv(time, status) ~ 1, data = aml, type = "fh")
+H_na <- na_fit$cumhaz
+
+# Gráfico superpuesto (funciones escalón)
+plot(c(0, na_fit$time), c(0, H_na), type = "s", col = "#d62728", lwd = 2,
+     xlab = "Tiempo", ylab = "Riesgo acumulado H(t)",
+     main = "H(t): Nelson-Aalen vs Kaplan-Meier")
+lines(c(0, km_all$time), c(0, H_km), type = "s", col = "#1f77b4", lwd = 2)
+legend("topleft", legend = c("Nelson-Aalen", "Kaplan-Meier (−log S)"),
+       col = c("#d62728", "#1f77b4"), lwd = 2)
+
+# Comparación numérica en los primeros tiempos de evento
+head(cbind(tiempo = km_all$time,
+           H_NA = round(na_fit$cumhaz, 3),
+           H_KM = round(-log(km_all$surv), 3)), 10)
+```
+
+**Cómo leer la salida**: las dos curvas son prácticamente indistinguibles (los saltos coinciden en los mismos tiempos de evento), pero Nelson-Aalen (rojo) queda ligeramente por encima de la transformación de Kaplan-Meier (azul). La tabla confirma que, tiempo a tiempo, $H_{NA}$ supera apenas a $H_{KM}$, y que ambas crecen de forma monótona acumulando $d_j/n_j$ (o su transformación logarítmica).
+
 # Modelos paramétricos {#sec-parametricos}
 
 Los modelos paramétricos asumen que los tiempos de supervivencia siguen una distribución de probabilidad específica. A diferencia del estimador de Kaplan-Meier (completamente no paramétrico), estos modelos imponen una forma funcional para la función de riesgo, lo que permite **extrapolar** más allá del último tiempo observado, obtener estimaciones más eficientes (menor varianza) cuando el modelo es correcto y realizar predicciones explícitas de la función de supervivencia.
