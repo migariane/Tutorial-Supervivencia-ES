@@ -21,6 +21,16 @@ citeproc: true
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23218107.svg)](https://doi.org/10.5281/zenodo.23218107)
 
+::: {.author-block}
+
+![Logo de la Universidad de Granada](images/logo_ugr.png){width=240px}
+
+**Miguel Ángel Luque Fernández** · Departamento de Estadística e Investigación Operativa, Universidad de Granada
+
+[Sitio web](https://migariane.github.io/) · [GitHub](https://github.com/migariane) · [ORCID](https://orcid.org/0000-0001-6683-5164) · [Google Scholar](https://scholar.google.com/citations?user=lA11XToAAAAJ&hl=en) · [Universidad de Granada](https://www.ugr.es)
+
+:::
+
 # Introducción {#sec-intro}
 
 ## ¿Qué es el análisis de supervivencia?
